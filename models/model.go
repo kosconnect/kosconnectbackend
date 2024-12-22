@@ -15,3 +15,9 @@ type CustomFacility struct {
     Name  string  `json:"name" bson:"name"`
     Price float64 `json:"price" bson:"price"`
 }
+
+type Category struct {
+	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name string             `bson:"name" json:"name"`
+	Slug string             `bson:"slug" json:"slug"`
+}

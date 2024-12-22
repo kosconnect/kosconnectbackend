@@ -35,3 +35,14 @@ func CustomFacilityRoutes(router *gin.Engine) {
         api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteCustomFacility)
     }
 }
+
+func CategoryRoutes(router *gin.Engine) {
+	api := router.Group("/api/categories")
+	{
+		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateCategory)
+		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllCategories)
+		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetCategoryByID)
+		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateCategory)
+		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteCategory)
+	}
+}
