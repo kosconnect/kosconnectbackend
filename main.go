@@ -40,6 +40,9 @@ func main() {
 	// Memanggil route untuk user (create, update, delete, get)
 	routes.FacilityType(router)
 
+	// Memanggil route untuk user (create, update, delete, get)
+	routes.RoomFacility(router)
+
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {

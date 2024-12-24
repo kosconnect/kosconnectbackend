@@ -68,3 +68,14 @@ func FacilityType(router *gin.Engine) {
 		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteFacilityType)
 	}
 }
+
+func RoomFacility(router *gin.Engine) {
+	api := router.Group("/api/roomfacilities")
+	{
+		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateRoomFacility)
+		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllRoomFacilities)
+		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetRoomFacilityByID)
+		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateRoomFacility)
+		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteRoomFacility)
+	}
+}
