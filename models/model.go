@@ -23,19 +23,19 @@ type FacilityType struct {
 
 // BoardingHouse model
 type BoardingHouse struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	OwnerID       primitive.ObjectID `bson:"owner_id,omitempty" json:"owner_id,omitempty"`
-	CategoryID    primitive.ObjectID `bson:"category_id,omitempty" json:"category_id,omitempty"`
-	Name          string             `bson:"name,omitempty" json:"name,omitempty"`
-	Slug          string             `bson:"slug,omitempty" json:"slug,omitempty"`
-	Address       string             `bson:"address,omitempty" json:"address,omitempty"`
-	Longitude     float64            `bson:"longitude,omitempty" json:"longitude,omitempty"`
-	Latitude      float64            `bson:"latitude,omitempty" json:"latitude,omitempty"`
-	Description   string             `bson:"description,omitempty" json:"description,omitempty"`
-	Facilities    []FacilityType     `bson:"facilities,omitempty" json:"facilities,omitempty"`
-	Images        []string           `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
-	Rules         string             `bson:"rules,omitempty" json:"rules,omitempty"`
-	ClosestPlaces []ClosestPlace     `bson:"closest_places,omitempty" json:"closest_places,omitempty"`
+	ID            primitive.ObjectID   `bson:"_id,omitempty" json:"id,omitempty"`
+	OwnerID       primitive.ObjectID   `bson:"owner_id,omitempty" json:"owner_id,omitempty"`
+	CategoryID    primitive.ObjectID   `bson:"category_id,omitempty" json:"category_id,omitempty"`
+	Name          string               `bson:"name,omitempty" json:"name,omitempty"`
+	Slug          string               `bson:"slug,omitempty" json:"slug,omitempty"`
+	Address       string               `bson:"address,omitempty" json:"address,omitempty"`
+	Longitude     float64              `bson:"longitude,omitempty" json:"longitude,omitempty"`
+	Latitude      float64              `bson:"latitude,omitempty" json:"latitude,omitempty"`
+	Description   string               `bson:"description,omitempty" json:"description,omitempty"`
+	Facilities    []primitive.ObjectID `bson:"facilities,omitempty" json:"facilities,omitempty"`
+	Images        []string             `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
+	Rules         string               `bson:"rules,omitempty" json:"rules,omitempty"`
+	ClosestPlaces []ClosestPlace       `bson:"closest_places,omitempty" json:"closest_places,omitempty"`
 }
 
 type Image struct {
@@ -53,7 +53,7 @@ type ClosestPlace struct {
 // RoomFacility model
 type RoomFacility struct {
 	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string `bson:"name,omitempty" json:"name,omitempty"`
+	Name string             `bson:"name,omitempty" json:"name,omitempty"`
 }
 
 // Room model

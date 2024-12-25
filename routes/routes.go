@@ -50,11 +50,11 @@ func CategoryRoutes(router *gin.Engine) {
 func BoardingHouseRoutes(router *gin.Engine) {
 	api := router.Group("/boardinghouses")
 	{
-		// api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateBoardingHouse)
-		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllBoardingHouses)
-		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetBoardingHouseByID)
-		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateBoardingHouse)
-		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteBoardingHouse)
+		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateBoardingHouse)
+		// api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllBoardingHouses)
+		// api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetBoardingHouseByID)
+		// api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateBoardingHouse)
+		// api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteBoardingHouse)
 	}
 }
 
