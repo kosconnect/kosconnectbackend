@@ -3,64 +3,44 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
-	"os"
+	"path"
 	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/organisasi/kosconnectbackend/config"
 	"github.com/organisasi/kosconnectbackend/helper"
 	"github.com/organisasi/kosconnectbackend/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // CreateBoardingHouse handles the creation of a new boarding house
 func CreateBoardingHouse(c *gin.Context) {
-	// Ambil owner_id dari token JWT
-	ownerID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: owner_id not found in token"})
+	claims := c.MustGet("user").(jwt.MapClaims)
+
+	// Validasi role harus "owner"
+	if role, ok := claims["role"].(string); !ok || role != "owner" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can create boarding houses"})
 		return
 	}
 
-	ownerObjID, err := primitive.ObjectIDFromHex(ownerID.(string))
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid owner_id in token"})
-		return
-	}
+	ownerID := claims["user_id"].(string)
 
 	// Parse form-data
-	err = c.Request.ParseMultipartForm(10 << 20)
+	err := c.Request.ParseMultipartForm(10 << 20)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form-data"})
 		return
 	}
 
-	// Initialize GitHub configuration
-	githubConfig := ghupload.GitHubConfig{
-		Token:  config.GetGitHubToken(),
-		Owner:  "kosconnect",
-		Repo:   "img",
-		Branch: "main",
-		Folder: "BoardingHouseImages",
-	}
-
-	// MongoDB setup
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(os.Getenv("MONGO_URI")))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to MongoDB"})
-		return
-	}
-	defer client.Disconnect(context.Background())
-
-	collection := client.Database("kosconnect").Collection("boardinghouses")
-	facilityCollection := client.Database("kosconnect").Collection("facilityTypes")
+	// Initialize MongoDB collections
+	collection := config.DB.Collection("boardinghouses")
+	facilityCollection := config.DB.Collection("facilitytypes")
 
 	// Extract fields from form-data
 	name := c.PostForm("name")
@@ -107,33 +87,54 @@ func CreateBoardingHouse(c *gin.Context) {
 		defer file.Close()
 
 		// Read file content
-		content, err := ioutil.ReadAll(file)
+		content, err := io.ReadAll(file)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file content"})
 			return
 		}
 
-		// Generate unique filename
-		uniqueFilename := fmt.Sprintf("%s/%s", githubConfig.Folder, uuid.New().String()+fileHeader.Filename)
+		// Ekstrak ekstensi file
+		ext := path.Ext(fileHeader.Filename) // Misalnya ".jpg"
+
+		// Buat nama file unik
+		uniqueFilename := fmt.Sprintf("BoardingHouseImages/%s%s", uuid.New().String(), ext)
+
+		// Configure GitHub upload
+		githubConfig := ghupload.GitHubConfig{
+			AccessToken: config.GetGitHubToken(),
+			AuthorName:  "Balqis Rosa Sekamayang",
+			AuthorEmail: "balqisrosasekamayang@gmail.com",
+			Org:         "kosconnect",
+			Repo:        "img",
+			FilePath:    uniqueFilename,
+			FileContent: content,
+			Replace:     true,
+		}
 
 		// Upload file to GitHub
-		err = ghupload.UploadFile(context.Background(), githubConfig, uniqueFilename, content)
+		resp, err := ghupload.UploadFile(context.Background(), githubConfig)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upload file to GitHub: %v", err)})
 			return
 		}
 
 		// Add URL to images array
-		imageUrls = append(imageUrls, fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s", githubConfig.Owner, githubConfig.Repo, githubConfig.Branch, uniqueFilename))
+		imageUrls = append(imageUrls, resp.GetContent().GetHTMLURL())
 	}
 
 	// Generate slug
 	slug := generateSlug(name)
 
+	ownerObjectID, err := primitive.ObjectIDFromHex(ownerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+		return
+	}
+
 	// Create boarding house model
 	boardingHouse := models.BoardingHouse{
 		ID:          primitive.NewObjectID(),
-		OwnerID:     ownerObjID,
+		OwnerID:     ownerObjectID,
 		CategoryID:  categoryID,
 		Name:        name,
 		Slug:        slug,

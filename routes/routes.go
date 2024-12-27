@@ -48,7 +48,7 @@ func CategoryRoutes(router *gin.Engine) {
 }
 
 func BoardingHouseRoutes(router *gin.Engine) {
-	api := router.Group("/boardinghouses")
+	api := router.Group("/api/boardinghouses")
 	{
 		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateBoardingHouse)
 		// api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllBoardingHouses)
