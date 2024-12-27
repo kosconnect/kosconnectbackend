@@ -36,7 +36,7 @@ func UploadFile(ctx context.Context, config GitHubConfig) (*github.RepositoryCon
 	client := github.NewClient(tc)
 
 	opts := &github.RepositoryContentFileOptions{
-		Message: github.String(fmt.Sprintf("Upload or update file by %s <%s>", config.AuthorName, config.AuthorEmail)),
+		Message: github.String(fmt.Sprintf("Upload File")),
 		Content: config.FileContent,
 		Branch:  github.String("main"),
 		Author: &github.CommitAuthor{
