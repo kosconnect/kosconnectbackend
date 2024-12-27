@@ -100,7 +100,7 @@ func CreateBoardingHouse(c *gin.Context) {
 		uniqueFilename := fmt.Sprintf("BoardingHouseImages/%s%s", uuid.New().String(), ext)
 
 		// Configure GitHub upload
-		githubConfig := ghupload.GitHubConfig{
+		githubConfig := helper.GitHubConfig{
 			AccessToken: config.GetGitHubToken(),
 			AuthorName:  "Balqis Rosa Sekamayang",
 			AuthorEmail: "balqisrosasekamayang@gmail.com",
@@ -112,7 +112,7 @@ func CreateBoardingHouse(c *gin.Context) {
 		}
 
 		// Upload file to GitHub
-		resp, err := ghupload.UploadFile(context.Background(), githubConfig)
+		resp, err := helper.UploadFile(context.Background(), githubConfig)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upload file to GitHub: %v", err)})
 			return

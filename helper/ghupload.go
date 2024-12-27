@@ -1,4 +1,4 @@
-package ghupload
+package helper
 
 import (
 	"context"
