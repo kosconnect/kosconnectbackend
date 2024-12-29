@@ -26,14 +26,24 @@ func UserRoutes(router *gin.Engine) {
 }
 
 func CustomFacilityRoutes(router *gin.Engine) {
-    api := router.Group("/api/customFacilities")
-    {
-        api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateCustomFacility)
-        api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllCustomFacilities)
-        api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetCustomFacilityByID)
-        api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateCustomFacility)
-        api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteCustomFacility)
-    }
+	api := router.Group("/api/customFacilities")
+	{
+		// Hanya "owner" yang bisa membuat custom facility
+		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateCustomFacility)
+
+		// Semua pengguna bisa mengambil semua fasilitas
+		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllCustomFacilities)
+
+		// Hanya "owner" atau pengguna dengan akses tertentu yang bisa mengambil fasilitas berdasarkan ID
+		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetCustomFacilityByID)
+
+		// Hanya "owner" yang bisa mengupdate atau menghapus custom facility
+		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateCustomFacility)
+		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteCustomFacility)
+
+		// Rute untuk mengambil fasilitas khusus berdasarkan owner ID
+		api.GET("/owner", middlewares.JWTAuthMiddleware(), controllers.GetCustomFacilitiesByOwnerID)
+	}
 }
 
 func CategoryRoutes(router *gin.Engine) {
@@ -48,13 +58,19 @@ func CategoryRoutes(router *gin.Engine) {
 }
 
 func BoardingHouseRoutes(router *gin.Engine) {
-	api := router.Group("/api/boardinghouses")
+	api := router.Group("/api/boardingHouses")
 	{
-		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateBoardingHouse)
-		// api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllBoardingHouses)
-		// api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetBoardingHouseByID)
-		// api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateBoardingHouse)
-		// api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteBoardingHouse)
+		// Public route
+		api.GET("/", controllers.GetAllBoardingHouse)
+
+		// Protected routes - Requires JWT authentication
+		api.Use(middlewares.JWTAuthMiddleware())
+		{
+			api.POST("/", controllers.CreateBoardingHouse)
+			api.GET("/owner", controllers.GetBoardingHouseByOwnerID)
+			api.PUT("/:id", controllers.UpdateBoardingHouse)
+			api.DELETE("/:id", controllers.DeleteBoardingHouse)
+		}
 	}
 }
 
