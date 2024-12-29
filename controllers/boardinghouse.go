@@ -171,3 +171,133 @@ func generateSlug(name string) string {
 	slug := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
 	return reg.ReplaceAllString(slug, "") + "-" + uuid.NewString()
 }
+
+// AMBIL SEMUA BOARDING HOUSE INI BUAT DI FE LANDING PAGE
+func GetAllBoardingHouse(c *gin.Context) {
+    collection := config.DB.Collection("boardinghouses")
+    var boardingHouses []models.BoardingHouse
+
+    cursor, err := collection.Find(context.Background(), bson.M{})
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch boarding houses"})
+        return
+    }
+    defer cursor.Close(context.Background())
+
+    for cursor.Next(context.Background()) {
+        var boardingHouse models.BoardingHouse
+        if err := cursor.Decode(&boardingHouse); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding boarding house"})
+            return
+        }
+        boardingHouses = append(boardingHouses, boardingHouse)
+    }
+
+    c.JSON(http.StatusOK, gin.H{"data": boardingHouses})
+}
+
+// INI BUAT PEMILIK KOS
+func GetBoardingHouseByOwnerID(c *gin.Context) {
+    claims := c.MustGet("user").(jwt.MapClaims)
+
+    if role, ok := claims["role"].(string); !ok || role != "owner" {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can view their boarding houses"})
+        return
+    }
+
+    ownerID := claims["user_id"].(string)
+    ownerObjectID, _ := primitive.ObjectIDFromHex(ownerID)
+
+    collection := config.DB.Collection("boardinghouses")
+    var boardingHouses []models.BoardingHouse
+
+    cursor, err := collection.Find(context.Background(), bson.M{"owner_id": ownerObjectID})
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch boarding houses"})
+        return
+    }
+    defer cursor.Close(context.Background())
+
+    for cursor.Next(context.Background()) {
+        var boardingHouse models.BoardingHouse
+        if err := cursor.Decode(&boardingHouse); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding boarding house"})
+            return
+        }
+        boardingHouses = append(boardingHouses, boardingHouse)
+    }
+
+    c.JSON(http.StatusOK, gin.H{"data": boardingHouses})
+}
+
+// UPDATE
+func UpdateBoardingHouse(c *gin.Context) {
+    claims := c.MustGet("user").(jwt.MapClaims)
+
+    if role, ok := claims["role"].(string); !ok || role != "owner" {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can update boarding houses"})
+        return
+    }
+
+    ownerID := claims["user_id"].(string)
+    ownerObjectID, _ := primitive.ObjectIDFromHex(ownerID)
+
+    id := c.Param("id")
+    boardingHouseID, err := primitive.ObjectIDFromHex(id)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid boarding house ID"})
+        return
+    }
+
+    var updateData models.BoardingHouse
+    if err := c.ShouldBindJSON(&updateData); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+        return
+    }
+
+    collection := config.DB.Collection("boardinghouses")
+    result, err := collection.UpdateOne(
+        context.Background(),
+        bson.M{"_id": boardingHouseID, "owner_id": ownerObjectID},
+        bson.M{"$set": updateData},
+    )
+    if err != nil || result.MatchedCount == 0 {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Boarding house not found or you are not the owner"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "Boarding house updated successfully"})
+}
+
+// DELETE OLEH OWNER
+func DeleteBoardingHouse(c *gin.Context) {
+    claims := c.MustGet("user").(jwt.MapClaims)
+
+    if role, ok := claims["role"].(string); !ok || role != "owner" {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can delete boarding houses"})
+        return
+    }
+
+    ownerID := claims["user_id"].(string)
+    ownerObjectID, _ := primitive.ObjectIDFromHex(ownerID)
+
+    id := c.Param("id")
+    boardingHouseID, err := primitive.ObjectIDFromHex(id)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid boarding house ID"})
+        return
+    }
+
+    collection := config.DB.Collection("boardinghouses")
+    result, err := collection.DeleteOne(
+        context.Background(),
+        bson.M{"_id": boardingHouseID, "owner_id": ownerObjectID},
+    )
+    if err != nil || result.DeletedCount == 0 {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Boarding house not found or you are not the owner"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "Boarding house deleted successfully"})
+}
+
