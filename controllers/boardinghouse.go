@@ -19,11 +19,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// CreateBoardingHouse handles the creation of a new boarding house
 func CreateBoardingHouse(c *gin.Context) {
+	// Ambil klaim user dari JWT
 	claims := c.MustGet("user").(jwt.MapClaims)
 
-	// Validasi role harus "owner"
+	// Validasi role "owner"
 	if role, ok := claims["role"].(string); !ok || role != "owner" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can create boarding houses"})
 		return
@@ -38,10 +38,6 @@ func CreateBoardingHouse(c *gin.Context) {
 		return
 	}
 
-	// Initialize MongoDB collections
-	collection := config.DB.Collection("boardinghouses")
-	facilityCollection := config.DB.Collection("facilitytypes")
-
 	// Extract fields from form-data
 	name := c.PostForm("name")
 	address := c.PostForm("address")
@@ -50,8 +46,9 @@ func CreateBoardingHouse(c *gin.Context) {
 	categoryID, _ := primitive.ObjectIDFromHex(c.PostForm("category_id"))
 	facilityTypeIDs := c.PostFormArray("facility_type_ids")
 
-	// Validate and fetch facility IDs
+	// Validasi dan fetch facility IDs
 	var facilityRefs []primitive.ObjectID
+	facilityCollection := config.DB.Collection("facilitytypes")
 	for _, id := range facilityTypeIDs {
 		facilityID, err := primitive.ObjectIDFromHex(id)
 		if err != nil {
@@ -59,7 +56,6 @@ func CreateBoardingHouse(c *gin.Context) {
 			return
 		}
 
-		// Verify the facility exists
 		count, err := facilityCollection.CountDocuments(context.Background(), bson.M{"_id": facilityID})
 		if err != nil || count == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Facility type not found for ID: %s", id)})
@@ -67,6 +63,20 @@ func CreateBoardingHouse(c *gin.Context) {
 		}
 
 		facilityRefs = append(facilityRefs, facilityID)
+	}
+
+	// Dapatkan koordinat berdasarkan alamat
+	latitude, longitude, err := helper.GetCoordinates(address)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Failed to get coordinates: %v", err)})
+		return
+	}
+
+	// Ambil tempat publik terdekat (misalnya dalam radius 1km)
+	closestPlaces, err := helper.GetClosestPlaces(longitude, latitude, config.GetHereAPIKey(), "point_of_interest", 1.0)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get closest places: %v", err)})
+		return
 	}
 
 	// Process images
@@ -86,20 +96,15 @@ func CreateBoardingHouse(c *gin.Context) {
 		}
 		defer file.Close()
 
-		// Read file content
 		content, err := io.ReadAll(file)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file content"})
 			return
 		}
 
-		// Ekstrak ekstensi file
-		ext := path.Ext(fileHeader.Filename) // Misalnya ".jpg"
-
-		// Buat nama file unik
+		ext := path.Ext(fileHeader.Filename)
 		uniqueFilename := fmt.Sprintf("BoardingHouseImages/%s%s", uuid.New().String(), ext)
 
-		// Configure GitHub upload
 		githubConfig := helper.GitHubConfig{
 			AccessToken: config.GetGitHubToken(),
 			AuthorName:  "Balqis Rosa Sekamayang",
@@ -111,14 +116,12 @@ func CreateBoardingHouse(c *gin.Context) {
 			Replace:     true,
 		}
 
-		// Upload file to GitHub
 		resp, err := helper.UploadFile(context.Background(), githubConfig)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upload file to GitHub: %v", err)})
 			return
 		}
 
-		// Add URL to images array
 		imageUrls = append(imageUrls, resp.GetContent().GetHTMLURL())
 	}
 
@@ -133,26 +136,28 @@ func CreateBoardingHouse(c *gin.Context) {
 
 	// Create boarding house model
 	boardingHouse := models.BoardingHouse{
-		ID:          primitive.NewObjectID(),
-		OwnerID:     ownerObjectID,
-		CategoryID:  categoryID,
-		Name:        name,
-		Slug:        slug,
-		Address:     address,
-		Description: description,
-		Facilities:  facilityRefs,
-		Images:      imageUrls,
-		Rules:       rules,
+		ID:            primitive.NewObjectID(),
+		OwnerID:       ownerObjectID,
+		CategoryID:    categoryID,
+		Name:          c.PostForm("name"),
+		Slug:          slug,
+		Address:       address,
+		Longitude:     longitude,
+		Latitude:      latitude,
+		Description:   description,
+		Facilities:    facilityRefs, // Sesuaikan input fasilitas
+		Images:        imageUrls,             // Sesuaikan input gambar
+		Rules:         rules,
+		ClosestPlaces: closestPlaces,
 	}
 
-	// Insert into MongoDB
+	collection := config.DB.Collection("boardinghouses")
 	_, err = collection.InsertOne(context.Background(), boardingHouse)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save boarding house to database"})
 		return
 	}
 
-	// Respond success
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Boarding house created successfully",
 		"data":    boardingHouse,
