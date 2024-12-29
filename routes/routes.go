@@ -68,6 +68,7 @@ func BoardingHouseRoutes(router *gin.Engine) {
 		{
 			api.POST("/", controllers.CreateBoardingHouse)
 			api.GET("/owner", controllers.GetBoardingHouseByOwnerID)
+			api.GET("/:id", controllers.GetBoardingHouseByID)
 			api.PUT("/:id", controllers.UpdateBoardingHouse)
 			api.DELETE("/:id", controllers.DeleteBoardingHouse)
 		}
@@ -95,3 +96,27 @@ func RoomFacility(router *gin.Engine) {
 		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteRoomFacility)
 	}
 }
+
+func RoomRoutes(router *gin.Engine) {
+	// Group routes for room
+	api := router.Group("/rooms")
+
+	// Apply middleware for authorization (if needed)
+	api.Use(middlewares.JWTAuthMiddleware())
+	{
+		// Public endpoint to get all rooms
+		api.GET("/", controllers.GetAllRoom)
+
+		// Public endpoint to get rooms by Boarding House ID
+		api.GET("/boarding-house/:id", controllers.GetRoomByBoardingHouseID)
+
+		// Public endpoint to get room by ID
+		api.GET("/:id", controllers.GetRoomByID)
+
+		// Protected endpoints for owners/admin to manage rooms
+		api.POST("/", controllers.CreateRoom) // Create room
+		api.PUT("/:id", controllers.UpdateRoom) // Update room
+		api.DELETE("/:id", controllers.DeleteRoom) // Delete room
+	}
+}
+

@@ -56,24 +56,29 @@ type RoomFacility struct {
 	Name string             `bson:"name,omitempty" json:"name,omitempty"`
 }
 
-// Room model
-type Room struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	BoardingHouseID primitive.ObjectID `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
-	RoomType        string             `bson:"room_type,omitempty" json:"room_type,omitempty"`
-	Size            string             `bson:"size,omitempty" json:"size,omitempty"`
-	Price           struct {
-		Monthly    int `bson:"monthly,omitempty" json:"monthly,omitempty"`
-		Quarterly  int `bson:"quarterly,omitempty" json:"quarterly,omitempty"`     // Per 3 bulan
-		SemiAnnual int `bson:"semi_annual,omitempty" json:"semi_annual,omitempty"` // Per 6 bulan
-		Yearly     int `bson:"yearly,omitempty" json:"yearly,omitempty"`
-	} `bson:"price,omitempty" json:"price,omitempty"`
-	RoomFacilities   []RoomFacility   `bson:"room_facilities,omitempty" json:"room_facilities,omitempty"`
-	CustomFacilities []CustomFacility `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
-	NumberAvailable  int              `bson:"number_available,omitempty" json:"number_available,omitempty"`
-	Images           []string         `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
+// RoomPrice struct
+type RoomPrice struct {
+    Monthly    int `bson:"monthly,omitempty" json:"monthly,omitempty"`
+    Quarterly  int `bson:"quarterly,omitempty" json:"quarterly,omitempty"`     // Per 3 bulan
+    SemiAnnual int `bson:"semi_annual,omitempty" json:"semi_annual,omitempty"` // Per 6 bulan
+    Yearly     int `bson:"yearly,omitempty" json:"yearly,omitempty"`
 }
 
+// Room model
+type Room struct {
+    ID              primitive.ObjectID   `bson:"_id,omitempty" json:"id,omitempty"`
+    BoardingHouseID primitive.ObjectID   `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
+    RoomType        string               `bson:"room_type,omitempty" json:"room_type,omitempty"`
+    Size            string               `bson:"size,omitempty" json:"size,omitempty"`
+    Price           RoomPrice            `bson:"price,omitempty" json:"price,omitempty"`
+    RoomFacilities   []primitive.ObjectID `bson:"room_facilities,omitempty" json:"room_facilities,omitempty"`
+    CustomFacilities []primitive.ObjectID `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
+    Status           string               `bson:"status,omitempty" json:"status,omitempty"`
+    NumberAvailable  int                  `bson:"number_available,omitempty" json:"number_available,omitempty"`
+    Images           []string             `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
+}
+
+// room custom facility
 type CustomFacility struct {
 	ID      string             `json:"id,omitempty" bson:"_id,omitempty"`
 	Name    string             `json:"name,omitempty" bson:"name,omitempty"`
