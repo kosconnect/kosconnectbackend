@@ -13,6 +13,19 @@ import (
 
 // Create CustomFacility
 func CreateCustomFacility(c *gin.Context) {
+    claims := c.MustGet("user").(map[string]interface{})
+
+    if role, ok := claims["role"].(string); !ok || role != "owner" {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can create custom facilities"})
+        return
+    }
+
+    ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+        return
+    }
+
     var facility models.CustomFacility
 
     if err := c.ShouldBindJSON(&facility); err != nil {
@@ -21,9 +34,10 @@ func CreateCustomFacility(c *gin.Context) {
     }
 
     facility.ID = primitive.NewObjectID().Hex()
+    facility.OwnerID = ownerID
     collection := config.DB.Collection("customFacility")
 
-    _, err := collection.InsertOne(context.TODO(), facility)
+    _, err = collection.InsertOne(context.TODO(), facility)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create custom facility"})
         return
@@ -71,8 +85,58 @@ func GetCustomFacilityByID(c *gin.Context) {
     c.JSON(http.StatusOK, facility)
 }
 
+// Get CustomFacilities by OwnerID
+func GetCustomFacilitiesByOwnerID(c *gin.Context) {
+    claims := c.MustGet("user").(map[string]interface{})
+
+    if role, ok := claims["role"].(string); !ok || role != "owner" {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can access their custom facilities"})
+        return
+    }
+
+    ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+        return
+    }
+
+    collection := config.DB.Collection("customFacility")
+    var facilities []models.CustomFacility
+
+    cursor, err := collection.Find(context.TODO(), bson.M{"owner_id": ownerID})
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch custom facilities"})
+        return
+    }
+    defer cursor.Close(context.TODO())
+
+    for cursor.Next(context.TODO()) {
+        var facility models.CustomFacility
+        if err := cursor.Decode(&facility); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding custom facility"})
+            return
+        }
+        facilities = append(facilities, facility)
+    }
+
+    c.JSON(http.StatusOK, facilities)
+}
+
 // Update CustomFacility
 func UpdateCustomFacility(c *gin.Context) {
+    claims := c.MustGet("user").(map[string]interface{})
+
+    if role, ok := claims["role"].(string); !ok || role != "owner" {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can update custom facilities"})
+        return
+    }
+
+    ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+        return
+    }
+
     id := c.Param("id")
     var updateData models.CustomFacility
 
@@ -82,9 +146,9 @@ func UpdateCustomFacility(c *gin.Context) {
     }
 
     collection := config.DB.Collection("customFacility")
-    _, err := collection.UpdateOne(
+    _, err = collection.UpdateOne(
         context.TODO(),
-        bson.M{"_id": id},
+        bson.M{"_id": id, "owner_id": ownerID},
         bson.M{"$set": bson.M{"name": updateData.Name, "price": updateData.Price}},
     )
 
@@ -98,10 +162,23 @@ func UpdateCustomFacility(c *gin.Context) {
 
 // Delete CustomFacility
 func DeleteCustomFacility(c *gin.Context) {
+    claims := c.MustGet("user").(map[string]interface{})
+
+    if role, ok := claims["role"].(string); !ok || role != "owner" {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can delete custom facilities"})
+        return
+    }
+
+    ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+        return
+    }
+
     id := c.Param("id")
     collection := config.DB.Collection("customFacility")
 
-    _, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
+    _, err = collection.DeleteOne(context.TODO(), bson.M{"_id": id, "owner_id": ownerID})
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete custom facility"})
         return
