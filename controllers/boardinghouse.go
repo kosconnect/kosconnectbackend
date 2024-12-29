@@ -19,6 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// CREATE / POST
 func CreateBoardingHouse(c *gin.Context) {
 	// Ambil klaim user dari JWT
 	claims := c.MustGet("user").(jwt.MapClaims)
@@ -194,6 +195,35 @@ func GetAllBoardingHouse(c *gin.Context) {
     }
 
     c.JSON(http.StatusOK, gin.H{"data": boardingHouses})
+}
+
+// GET BOARDING HOUSE BY ID (ROLE BEBAS)
+func GetBoardingHouseByID(c *gin.Context) {
+	claims := c.MustGet("user").(jwt.MapClaims)
+	if _, ok := claims["user_id"].(string); !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized access"})
+		return
+	}
+
+	id := c.Param("id")
+	boardingHouseID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid boarding house ID"})
+		return
+	}
+
+	collection := config.DB.Collection("boardinghouses")
+	var boardingHouse models.BoardingHouse
+
+	err = collection.FindOne(context.Background(), bson.M{"_id": boardingHouseID}).Decode(&boardingHouse)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Boarding house not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": boardingHouse,
+	})
 }
 
 // INI BUAT PEMILIK KOS
