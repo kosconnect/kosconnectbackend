@@ -25,23 +25,15 @@ func main() {
 	// Register routes
 	routes.AuthRoutes(router)
 
-	// Memanggil route untuk user (create, update, delete, get)
+	// ROUTES UNTUK CRUD
 	routes.UserRoutes(router) // Pastikan ini ada
-
-	// Memanggil route untuk user (create, update, delete, get)
-	routes.CustomFacilityRoutes(router)
-
-	// Memanggil route untuk user (create, update, delete, get)
+	routes.CustomFacility(router)
 	routes.CategoryRoutes(router)
-
-	// Memanggil route untuk user (create, update, delete, get)
-	routes.BoardingHouseRoutes(router)
-
-	// Memanggil route untuk user (create, update, delete, get)
+	routes.BoardingHouse(router)
 	routes.FacilityType(router)
-
-	// Memanggil route untuk user (create, update, delete, get)
 	routes.RoomFacility(router)
+	routes.RoomRoutes(router)
+
 
 	// Start server
 	port := os.Getenv("PORT")

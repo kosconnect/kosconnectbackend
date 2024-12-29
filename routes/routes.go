@@ -25,7 +25,7 @@ func UserRoutes(router *gin.Engine) {
 	}
 }
 
-func CustomFacilityRoutes(router *gin.Engine) {
+func CustomFacility(router *gin.Engine) {
 	api := router.Group("/api/customFacilities")
 	{
 		// Hanya "owner" yang bisa membuat custom facility
@@ -57,7 +57,7 @@ func CategoryRoutes(router *gin.Engine) {
 	}
 }
 
-func BoardingHouseRoutes(router *gin.Engine) {
+func BoardingHouse(router *gin.Engine) {
 	api := router.Group("/api/boardingHouses")
 	{
 		// Public route
