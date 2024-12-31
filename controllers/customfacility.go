@@ -9,11 +9,13 @@ import (
     "github.com/organisasi/kosconnectbackend/models"
     "go.mongodb.org/mongo-driver/bson"
     "go.mongodb.org/mongo-driver/bson/primitive"
+    "github.com/golang-jwt/jwt/v5"
 )
 
 // Create CustomFacility
 func CreateCustomFacility(c *gin.Context) {
-    claims := c.MustGet("user").(map[string]interface{})
+    // Ambil klaim user dari JWT
+	claims := c.MustGet("user").(jwt.MapClaims)
 
     if role, ok := claims["role"].(string); !ok || role != "owner" {
         c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can create custom facilities"})
@@ -87,7 +89,8 @@ func GetCustomFacilityByID(c *gin.Context) {
 
 // Get CustomFacilities by OwnerID
 func GetCustomFacilitiesByOwnerID(c *gin.Context) {
-    claims := c.MustGet("user").(map[string]interface{})
+    // Ambil klaim user dari JWT
+	claims := c.MustGet("user").(jwt.MapClaims)
 
     if role, ok := claims["role"].(string); !ok || role != "owner" {
         c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can access their custom facilities"})
@@ -124,7 +127,8 @@ func GetCustomFacilitiesByOwnerID(c *gin.Context) {
 
 // Update CustomFacility
 func UpdateCustomFacility(c *gin.Context) {
-    claims := c.MustGet("user").(map[string]interface{})
+    // Ambil klaim user dari JWT
+	claims := c.MustGet("user").(jwt.MapClaims)
 
     if role, ok := claims["role"].(string); !ok || role != "owner" {
         c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can update custom facilities"})
@@ -162,7 +166,8 @@ func UpdateCustomFacility(c *gin.Context) {
 
 // Delete CustomFacility
 func DeleteCustomFacility(c *gin.Context) {
-    claims := c.MustGet("user").(map[string]interface{})
+    // Ambil klaim user dari JWT
+	claims := c.MustGet("user").(jwt.MapClaims)
 
     if role, ok := claims["role"].(string); !ok || role != "owner" {
         c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can delete custom facilities"})
