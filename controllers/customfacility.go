@@ -15,7 +15,7 @@ import (
 // Create CustomFacility
 func CreateCustomFacility(c *gin.Context) {
     // Ambil klaim user dari JWT
-	claims := c.MustGet("user").(jwt.MapClaims)
+    claims := c.MustGet("user").(jwt.MapClaims)
 
     if role, ok := claims["role"].(string); !ok || role != "owner" {
         c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can create custom facilities"})
@@ -28,25 +28,40 @@ func CreateCustomFacility(c *gin.Context) {
         return
     }
 
+    // Bind JSON input ke struct
     var facility models.CustomFacility
-
     if err := c.ShouldBindJSON(&facility); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
         return
     }
 
+    // Generate ObjectID untuk facility
     facility.ID = primitive.NewObjectID().Hex()
     facility.OwnerID = ownerID
-    collection := config.DB.Collection("customFacility")
 
+    // Simpan ke koleksi MongoDB
+    collection := config.DB.Collection("customFacility")
     _, err = collection.InsertOne(context.TODO(), facility)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create custom facility"})
         return
     }
 
-    c.JSON(http.StatusCreated, gin.H{"message": "Custom facility created successfully", "data": facility})
+    // Format harga dalam rupiah
+    formattedPrice := formatrupiah(facility.Price)
+
+    // Respon sukses
+    c.JSON(http.StatusCreated, gin.H{
+        "message": "Custom facility created successfully",
+        "data": gin.H{
+            "id":          facility.ID,
+            "owner_id":    facility.OwnerID,
+            "name":        facility.Name,
+            "price":       formattedPrice, // Harga dalam format Indonesia
+        },
+    })
 }
+
 
 // Get All CustomFacilities
 func GetAllCustomFacilities(c *gin.Context) {
