@@ -15,15 +15,20 @@ func AuthRoutes(router *gin.Engine) {
 }
 
 func UserRoutes(router *gin.Engine) {
-	api := router.Group("/api/users")
-	{
-		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateUser)
-		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllUsers)
-		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetUserByID)
-		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateUser)
-		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteUser)
-	}
+    api := router.Group("/api/users")
+    {
+        api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateUser)                        // Admin creates a user
+        api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllUsers)                       // Admin views all users
+        api.GET("/me", middlewares.JWTAuthMiddleware(), controllers.GetMyAccount)                   // Logged-in user views their own account
+        api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetUserByID)                   // Get user by ID
+        api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateUser)                    // Update user details
+        api.PUT("/:id/role", middlewares.JWTAuthMiddleware(), controllers.UpdateUserRole)           // Admin updates user role
+		api.PUT("/change-password", middlewares.JWTAuthMiddleware(), controllers.ChangePassword)    // Logged-in user changes their password
+        api.PUT("/:id/reset-password", middlewares.JWTAuthMiddleware(), controllers.ResetPassword)  // Admin resets user password
+        api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteUser)                 // Delete a user
+    }
 }
+
 
 func CustomFacility(router *gin.Engine) {
 	api := router.Group("/api/customFacilities")
