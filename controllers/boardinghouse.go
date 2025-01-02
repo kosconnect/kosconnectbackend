@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -46,25 +47,23 @@ func CreateBoardingHouse(c *gin.Context) {
 	description := c.PostForm("description")
 	rules := c.PostForm("rules")
 	categoryID, _ := primitive.ObjectIDFromHex(c.PostForm("category_id"))
-	facilityTypeIDs := c.PostFormArray("facility_type_ids")
 
-	// Validasi dan fetch facility IDs
-	var facilityRefs []primitive.ObjectID
-	facilityCollection := config.DB.Collection("facilitytypes")
-	for _, id := range facilityTypeIDs {
-		facilityID, err := primitive.ObjectIDFromHex(id)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid facility type ID: %s", id)})
-			return
-		}
+	if name == "" || address == "" || description == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name, address, and description are required"})
+		return
+	}
 
-		count, err := facilityCollection.CountDocuments(context.Background(), bson.M{"_id": facilityID})
-		if err != nil || count == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Facility type not found for ID: %s", id)})
-			return
-		}
-
-		facilityRefs = append(facilityRefs, facilityID)
+	if categoryID.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or missing category_id"})
+		return
+	}
+		
+	// Parse facilities
+	facilitiesJSON := c.PostForm("facilities")
+	var facilities []models.Facilities
+	if err := json.Unmarshal([]byte(facilitiesJSON), &facilities); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facilities format"})
+		return
 	}
 
 	// Ambil longitude dan latitude dari form-data
@@ -158,8 +157,8 @@ func CreateBoardingHouse(c *gin.Context) {
 		Longitude:     longitude,
 		Latitude:      latitude,
 		Description:   description,
-		Facilities:    facilityRefs, // Sesuaikan input fasilitas
-		Images:        imageUrls,    // Sesuaikan input gambar
+		Facilities:    facilities, // Sesuaikan input fasilitas
+		Images:        imageUrls,             // Sesuaikan input gambar
 		Rules:         rules,
 		ClosestPlaces: closestPlaces,
 	}
@@ -317,24 +316,13 @@ func UpdateBoardingHouse(c *gin.Context) {
 	}
 
 	// Update facilities
-	facilityTypeIDs := c.PostFormArray("facility_type_ids")
-	if len(facilityTypeIDs) > 0 {
-		var facilityRefs []primitive.ObjectID
-		facilityCollection := config.DB.Collection("facilitytypes")
-		for _, id := range facilityTypeIDs {
-			facilityID, err := primitive.ObjectIDFromHex(id)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid facility type ID: %s", id)})
-				return
-			}
-			count, err := facilityCollection.CountDocuments(context.Background(), bson.M{"_id": facilityID})
-			if err != nil || count == 0 {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Facility type not found for ID: %s", id)})
-				return
-			}
-			facilityRefs = append(facilityRefs, facilityID)
+	if facilitiesJSON := c.PostForm("facilities"); facilitiesJSON != "" {
+		var facilities []models.Facilities
+		if err := json.Unmarshal([]byte(facilitiesJSON), &facilities); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facilities format"})
+			return
 		}
-		updateFields["facilities"] = facilityRefs
+		updateFields["facilities"] = facilities
 	}
 
 	// Update location and fetch closest places
@@ -448,6 +436,7 @@ func UpdateBoardingHouse(c *gin.Context) {
 		"data":    updatedBoardingHouse,
 	})
 }
+
 
 // DELETE OLEH OWNER
 func DeleteBoardingHouse(c *gin.Context) {
