@@ -3,6 +3,8 @@ package middlewares
 import (
 	"net/http"
 	"strings"
+	"errors"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -46,4 +48,32 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		c.Set("user", token.Claims)
 		c.Next()
 	}
+}
+
+// Fungsi untuk memvalidasi token JWT dan mengembalikan klaim jika valid
+func ValidateToken(tokenString string) (jwt.MapClaims, error) {
+	// Parse token dan verifikasi
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Pastikan token menggunakan algoritma yang benar
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return jwtSecret, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Periksa apakah token valid
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		// Cek apakah token belum kadaluarsa
+		expirationTime := claims["exp"].(float64)
+		if time.Now().Unix() > int64(expirationTime) {
+			return nil, errors.New("token has expired")
+		}
+		return claims, nil
+	}
+
+	return nil, errors.New("invalid token")
 }
