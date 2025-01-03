@@ -3,11 +3,12 @@ package models
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type User struct {
-	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	FullName string             `bson:"fullname,omitempty" json:"fullname,omitempty"`
-	Email    string             `bson:"email,omitempty" json:"email,omitempty"`
-	Role     string             `bson:"role,omitempty" json:"role,omitempty"`
-	Password string             `bson:"password,omitempty" json:"password,omitempty"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	FullName    string             `bson:"fullname,omitempty" json:"fullname,omitempty"`
+	Email       string             `bson:"email,omitempty" json:"email,omitempty"`
+	PhoneNumber string             `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"`
+	Role        string             `bson:"role,omitempty" json:"role,omitempty"`
+	Password    string             `bson:"password,omitempty" json:"password,omitempty"`
 }
 
 type Category struct {
@@ -41,7 +42,7 @@ type BoardingHouse struct {
 // untuk simpan data facility umum di boarding house
 type Facilities struct {
 	FacilityID primitive.ObjectID `json:"facility_id,omitempty" bson:"facility_id,omitempty"`
-	Name string `json:"name,omitempty" bson:"name,omitempty"`
+	Name       string             `json:"name,omitempty" bson:"name,omitempty"`
 }
 
 // ClosestPlace model
@@ -56,6 +57,7 @@ type RoomFacility struct {
 	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Name string             `bson:"name,omitempty" json:"name,omitempty"`
 }
+
 // room custom facility
 type CustomFacility struct {
 	ID      string             `json:"id,omitempty" bson:"_id,omitempty"`
@@ -66,16 +68,16 @@ type CustomFacility struct {
 
 // Room model
 type Room struct {
-	ID               primitive.ObjectID   `bson:"_id,omitempty" json:"id,omitempty"`
-	BoardingHouseID  primitive.ObjectID   `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
-	RoomType         string               `bson:"room_type,omitempty" json:"room_type,omitempty"`
-	Size             string               `bson:"size,omitempty" json:"size,omitempty"`
-	Price            RoomPrice            `bson:"price,omitempty" json:"price,omitempty"`
-	RoomFacilities   []RoomFacilities `bson:"room_facilities,omitempty" json:"room_facilities,omitempty"`
+	ID               primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	BoardingHouseID  primitive.ObjectID `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
+	RoomType         string             `bson:"room_type,omitempty" json:"room_type,omitempty"`
+	Size             string             `bson:"size,omitempty" json:"size,omitempty"`
+	Price            RoomPrice          `bson:"price,omitempty" json:"price,omitempty"`
+	RoomFacilities   []RoomFacilities   `bson:"room_facilities,omitempty" json:"room_facilities,omitempty"`
 	CustomFacilities []CustomFacilities `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
-	Status           string               `bson:"status,omitempty" json:"status,omitempty"`
-	NumberAvailable  int                  `bson:"number_available,omitempty" json:"number_available,omitempty"`
-	Images           []string             `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
+	Status           string             `bson:"status,omitempty" json:"status,omitempty"`
+	NumberAvailable  int                `bson:"number_available,omitempty" json:"number_available,omitempty"`
+	Images           []string           `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
 }
 
 // RoomPrice struct
@@ -89,12 +91,47 @@ type RoomPrice struct {
 // tempat simpan roomfacility dari tiap ruangan
 type RoomFacilities struct {
 	RoomFacilityID primitive.ObjectID `bson:"roomfacility_id,omitempty" json:"roomfacility_id,omitempty"`
-	Name string `bson:"name,omitempty" json:"name,omitempty"`
+	Name           string             `bson:"name,omitempty" json:"name,omitempty"`
 }
 
 // tempat simpan custom facility yang ada di tiap kamar/ruangan/room
 type CustomFacilities struct {
 	CustomFacilitiesID primitive.ObjectID `bson:"customfacility_id,omitempty" json:"customfacility_id,omitempty"`
-	Name    string             `json:"name,omitempty" bson:"name,omitempty"`
-	Price   float64            `json:"price,omitempty" bson:"price,omitempty"`
+	Name               string             `json:"name,omitempty" bson:"name,omitempty"`
+	Price              float64            `json:"price,omitempty" bson:"price,omitempty"`
+}
+
+///////////////
+type Order struct {
+	ID                    primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	UserID                primitive.ObjectID `bson:"user_id,omitempty" json:"user_id,omitempty"`
+	BoardingHouseID       primitive.ObjectID `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
+	RoomID                primitive.ObjectID `bson:"room_id,omitempty" json:"room_id,omitempty"`
+	RoomType              string             `bson:"room_type,omitempty" json:"room_type,omitempty"`
+	CustomFacilities      []CustomFacilities `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
+	Name                  string             `json:"name,omitempty" bson:"name,omitempty"`
+	Email                 string             `bson:"email,omitempty" json:"email,omitempty"`
+	PhoneNumber           string             `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"`
+	CheckInDate           string             `bson:"check_in_date,omitempty" json:"check_in_date,omitempty"`
+	Duration              string             `bson:"duration,omitempty" json:"duration,omitempty"` // Monthly, Quarterly, SemiAnnual, Yearly
+	TotalAmount           float64            `bson:"total_amount,omitempty" json:"total_amount,omitempty"`
+	PaymentStatus         string             `bson:"payment_status,omitempty" json:"payment_status,omitempty"` // Pending, Paid, Failed, etc.
+	PaymentVirtualAccount string             `bson:"payment_virtual_account,omitempty" json:"payment_virtual_account,omitempty"`
+	OrderStatus           string             `bson:"order_status,omitempty" json:"order_status,omitempty"` // Pending, Accepted, Rejected, Completed
+	OwnerID               primitive.ObjectID `bson:"owner_id,omitempty" json:"owner_id,omitempty"`         // Menambahkan field OwnerID
+	CreatedAt             string             `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	UpdatedAt             string             `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+}
+
+type OrderStatus struct {
+	Pending   string `json:"pending"`
+	Accepted  string `json:"accepted"`
+	Rejected  string `json:"rejected"`
+	Completed string `json:"completed"`
+}
+
+type PaymentStatus struct {
+	Pending string `json:"pending"`
+	Failed  string `json:"failed"`
+	Success string `json:"success"`
 }
