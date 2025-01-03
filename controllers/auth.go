@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -27,10 +28,26 @@ func generateToken(userID primitive.ObjectID, role string) (string, error) {
 	return token.SignedString(jwtSecret)
 }
 
+// Register handles user registration
 func Register(c *gin.Context) {
 	var user models.User
+
+	// Bind JSON input to user model
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	// Validate required fields
+	if user.FullName == "" || user.Email == "" || user.PhoneNumber == "" || user.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "All fields are required"})
+		return
+	}
+
+	// Validate phone number format (E.164)
+	phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
+	if !phoneRegex.MatchString(user.PhoneNumber) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phone number format"})
 		return
 	}
 
@@ -41,9 +58,16 @@ func Register(c *gin.Context) {
 		return
 	}
 	user.Password = string(hashedPassword)
+
+	// Set default role (if not provided)
+	if user.Role == "" {
+		user.Role = "user" // Default role
+	}
+
+	// Set user ID
 	user.ID = primitive.NewObjectID()
 
-	// Insert to MongoDB
+	// Insert user into MongoDB
 	collection := config.DB.Collection("users")
 	_, err = collection.InsertOne(context.TODO(), user)
 	if err != nil {
@@ -51,6 +75,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Return success response
 	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
 }
 
