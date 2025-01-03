@@ -11,7 +11,10 @@ require (
 	golang.org/x/crypto v0.31.0
 )
 
-require github.com/google/go-querystring v1.1.0 // indirect
+require (
+	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/vercel/go-bridge v0.0.0-20221108222652-296f4c6bdb6d // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.12.6 // indirect
@@ -50,7 +53,7 @@ require (
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/text v0.21.0
 	google.golang.org/protobuf v1.36.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

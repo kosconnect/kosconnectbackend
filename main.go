@@ -1,32 +1,32 @@
-package main
+package handler
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/organisasi/kosconnectbackend/config"
+	"github.com/organisasi/kosconnectbackend/middlewares"
 	"github.com/organisasi/kosconnectbackend/routes"
 )
 
-func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
-	}
-
+func init() {	
 	// Connect to MongoDB
 	config.ConnectDB()
+}
 
-	// Set up Gin router
+// Handler for deployment - Menerima request dan menangani routing dengan CORS
+func Handler(w http.ResponseWriter, r *http.Request) {
+	// Set up Gin router di dalam handler
 	router := gin.Default()
 
-	// Register routes
-	routes.AuthRoutes(router)
+	// Apply CORS Middleware
+	router.Use(middlewares.CORSMiddleware())
 
-	// ROUTES UNTUK CRUD
-	routes.UserRoutes(router) // Pastikan ini ada
+	// Register routes setelah router diinisialisasi
+	routes.AuthRoutes(router)
+	routes.UserRoutes(router)
 	routes.CustomFacility(router)
 	routes.CategoryRoutes(router)
 	routes.BoardingHouse(router)
@@ -34,11 +34,21 @@ func main() {
 	routes.RoomFacility(router)
 	routes.RoomRoutes(router)
 
+	// Handle HTTP request
+	router.ServeHTTP(w, r)
+}
 
+func main() {
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	log.Fatal(router.Run(":" + port))
+	log.Printf("Server is running on port %s\n", port)
+
+	// Gunakan handler untuk menangani request HTTP
+	http.HandleFunc("/", Handler) // Memetakan path "/" ke Handler
+
+	// Mulai server
+	log.Fatal(http.ListenAndServe(":"+port, nil)) // Tidak perlu http.HandlerFunc(Handler) di sini
 }

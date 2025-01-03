@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@vercel/go": "^3.2.1"
+  }
+}
