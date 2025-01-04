@@ -1,4 +1,4 @@
-package handler
+package handler //ganti ke main kalau mau di run local
 
 import (
 	"log"
@@ -6,12 +6,18 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	// "github.com/joho/godotenv" //digunakan hanya jika akan di run secara local
 	"github.com/organisasi/kosconnectbackend/config"
 	"github.com/organisasi/kosconnectbackend/middlewares"
 	"github.com/organisasi/kosconnectbackend/routes"
 )
 
 func init() {	
+	// Load environment variables digunakan hanya jika akan di run secara local
+	// if err := godotenv.Load(); err != nil {
+	// 	log.Println("No .env file found")
+	// }
+
 	// Connect to MongoDB
 	config.ConnectDB()
 }

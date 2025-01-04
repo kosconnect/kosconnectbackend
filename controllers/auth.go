@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Secret key for signing JWTs
@@ -51,6 +52,45 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Check if email or phone number already exists
+collection := config.DB.Collection("users")
+
+// Check for email existence
+	emailExists := false
+	phoneNumberExists := false
+	
+	// Check if email exists
+	err := collection.FindOne(context.TODO(), bson.M{"email": user.Email}).Decode(&models.User{})
+	if err == nil {
+		emailExists = true
+	}
+
+	// Check if phone number exists
+	err = collection.FindOne(context.TODO(), bson.M{"phonenumber": user.PhoneNumber}).Decode(&models.User{})
+	if err == nil {
+		phoneNumberExists = true
+	}
+
+	// Construct error message
+	if emailExists && phoneNumberExists {
+		c.JSON(http.StatusConflict, gin.H{"error": "Email and phone number already in use"})
+		return
+	}
+	if emailExists {
+		c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
+		return
+	}
+	if phoneNumberExists {
+		c.JSON(http.StatusConflict, gin.H{"error": "Phone number already in use"})
+		return
+	}
+
+	// Handle database errors other than no document found
+	if err != mongo.ErrNoDocuments {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -68,7 +108,6 @@ func Register(c *gin.Context) {
 	user.ID = primitive.NewObjectID()
 
 	// Insert user into MongoDB
-	collection := config.DB.Collection("users")
 	_, err = collection.InsertOne(context.TODO(), user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
