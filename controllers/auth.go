@@ -3,7 +3,7 @@ package controllers
 import (
 	"context"
 	"net/http"
-	"regexp"
+	// "regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -40,17 +40,19 @@ func Register(c *gin.Context) {
 	}
 
 	// Validate required fields
-	if user.FullName == "" || user.Email == "" || user.PhoneNumber == "" || user.Password == "" {
+	if user.FullName == "" || user.Email == "" || user.Password == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "All fields are required"})
 		return
 	}
 
+	// || user.PhoneNumber == "" 
+
 	// Validate phone number format (E.164)
-	phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
-	if !phoneRegex.MatchString(user.PhoneNumber) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phone number format"})
-		return
-	}
+	// phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
+	// if !phoneRegex.MatchString(user.PhoneNumber) {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phone number format"})
+	// 	return
+	// }
 
 	// Check if email or phone number already exists
 collection := config.DB.Collection("users")
