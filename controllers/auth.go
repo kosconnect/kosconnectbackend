@@ -57,7 +57,7 @@ collection := config.DB.Collection("users")
 
 // Check for email existence
 	emailExists := false
-	phoneNumberExists := false
+	// phoneNumberExists := false
 	
 	// Check if email exists
 	err := collection.FindOne(context.TODO(), bson.M{"email": user.Email}).Decode(&models.User{})
@@ -65,25 +65,25 @@ collection := config.DB.Collection("users")
 		emailExists = true
 	}
 
-	// Check if phone number exists
-	err = collection.FindOne(context.TODO(), bson.M{"phonenumber": user.PhoneNumber}).Decode(&models.User{})
-	if err == nil {
-		phoneNumberExists = true
-	}
+	// // Check if phone number exists
+	// err = collection.FindOne(context.TODO(), bson.M{"phonenumber": user.PhoneNumber}).Decode(&models.User{})
+	// if err == nil {
+	// 	phoneNumberExists = true
+	// }
 
-	// Construct error message
-	if emailExists && phoneNumberExists {
-		c.JSON(http.StatusConflict, gin.H{"error": "Email and phone number already in use"})
-		return
-	}
+	// // Construct error message
+	// if emailExists && phoneNumberExists {
+	// 	c.JSON(http.StatusConflict, gin.H{"error": "Email and phone number already in use"})
+	// 	return
+	// }
 	if emailExists {
 		c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
 		return
 	}
-	if phoneNumberExists {
-		c.JSON(http.StatusConflict, gin.H{"error": "Phone number already in use"})
-		return
-	}
+	// if phoneNumberExists {
+	// 	c.JSON(http.StatusConflict, gin.H{"error": "Phone number already in use"})
+	// 	return
+	// }
 
 	// Handle database errors other than no document found
 	if err != mongo.ErrNoDocuments {
