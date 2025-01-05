@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 	// "regexp"
-	"time"
 	"encoding/json"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -14,8 +14,8 @@ import (
 	"github.com/organisasi/kosconnectbackend/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"golang.org/x/crypto/bcrypt"
 	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -28,7 +28,7 @@ func generateToken(userID primitive.ObjectID, role string) (string, error) {
 		"user_id": userID.Hex(),
 		"role":    role,
 		"exp":     time.Now().Add(24 * time.Hour).Unix(), // Token expires in 24 hours
-		"iat":     time.Now().Unix(),                   // Issued at
+		"iat":     time.Now().Unix(),                     // Issued at
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecret)
@@ -50,7 +50,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// || user.PhoneNumber == "" 
+	// || user.PhoneNumber == ""
 
 	// Validate phone number format (E.164)
 	// phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
@@ -60,12 +60,12 @@ func Register(c *gin.Context) {
 	// }
 
 	// Check if email or phone number already exists
-collection := config.DB.Collection("users")
+	collection := config.DB.Collection("users")
 
-// Check for email existence
+	// Check for email existence
 	emailExists := false
 	// phoneNumberExists := false
-	
+
 	// Check if email exists
 	err := collection.FindOne(context.TODO(), bson.M{"email": user.Email}).Decode(&models.User{})
 	if err == nil {
@@ -136,19 +136,18 @@ var googleOauthConfig = oauth2.Config{
 
 var oauthStateString = "random-state-string" // Bisa diganti dengan nilai dinamis untuk keamanan
 
-
 // HandleGoogleLogin mengarahkan pengguna ke halaman login Google
 func HandleGoogleLogin(c *gin.Context) {
-	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline)
+	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
 	c.Redirect(http.StatusFound, url)
 }
 
 func HandleGoogleCallback(c *gin.Context) {
 	state := c.Query("state")
-    if state != oauthStateString {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
-        return
-    }
+	if state != oauthStateString {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
+		return
+	}
 	// Ambil "code" dari query parameter
 	code := c.Query("code")
 	if code == "" {
@@ -189,11 +188,11 @@ func HandleGoogleCallback(c *gin.Context) {
 	if err == mongo.ErrNoDocuments {
 		// Jika user tidak ditemukan, buat entri baru dengan role kosong
 		newUser := models.User{
-			ID:          primitive.NewObjectID(),
-			FullName:    userInfo.Name,
-			Email:       userInfo.Email,
-			Role:        "", // Role kosong
-			VerifiedEmail:    true,
+			ID:            primitive.NewObjectID(),
+			FullName:      userInfo.Name,
+			Email:         userInfo.Email,
+			Role:          "", // Role kosong
+			VerifiedEmail: true,
 		}
 		_, err = collection.InsertOne(context.TODO(), newUser)
 		if err != nil {
@@ -235,7 +234,6 @@ func HandleGoogleCallback(c *gin.Context) {
 	})
 }
 
-
 func AssignRole(c *gin.Context) {
 	type RoleRequest struct {
 		Email string `json:"email" binding:"required"`
@@ -261,7 +259,6 @@ func AssignRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Role assigned successfully"})
 }
-
 
 func Login(c *gin.Context) {
 	var loginData struct {
