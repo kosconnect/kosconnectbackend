@@ -1,14 +1,23 @@
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type User struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	FullName    string             `bson:"fullname,omitempty" json:"fullname,omitempty"`
-	Email       string             `bson:"email,omitempty" json:"email,omitempty"`
-	PhoneNumber string             `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"`
-	Role        string             `bson:"role,omitempty" json:"role,omitempty"`
-	Password    string             `bson:"password,omitempty" json:"password,omitempty"`
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	FullName      string             `bson:"fullname,omitempty" json:"fullname,omitempty"`
+	Email         string             `bson:"email,omitempty" json:"email,omitempty"`
+	PhoneNumber   string             `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"`
+	Role          string             `bson:"role,omitempty" json:"role,omitempty"`
+	Password      string             `bson:"password,omitempty" json:"password,omitempty"`
+	Picture       string             `bson:"picture,omitempty" json:"picture,omitempty"`               // URL foto profil
+	VerifiedEmail bool               `bson:"verified_email,omitempty" json:"verified_email,omitempty"` // Status verifikasi email
+	CreatedAt     time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`         // Waktu pembuatan
+	UpdatedAt     time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`         // Waktu pembaruan
+    IsRoleAssigned bool               `bson:"is_role_assigned" json:"is_role_assigned"`
 }
 
 type Category struct {
@@ -101,7 +110,7 @@ type CustomFacilities struct {
 	Price              float64            `json:"price,omitempty" bson:"price,omitempty"`
 }
 
-///////////////
+// /////////////
 type Order struct {
 	ID                    primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	UserID                primitive.ObjectID `bson:"user_id,omitempty" json:"user_id,omitempty"`
@@ -111,14 +120,15 @@ type Order struct {
 	CustomFacilities      []CustomFacilities `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
 	Name                  string             `json:"name,omitempty" bson:"name,omitempty"`
 	Email                 string             `bson:"email,omitempty" json:"email,omitempty"`
-	PhoneNumber           string             `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"`
+	PhoneNumber           string             `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"` // Nomor WhatsApp pemesan
 	CheckInDate           string             `bson:"check_in_date,omitempty" json:"check_in_date,omitempty"`
-	Duration              string             `bson:"duration,omitempty" json:"duration,omitempty"` // Monthly, Quarterly, SemiAnnual, Yearly
+	Duration              string             `bson:"duration,omitempty" json:"duration,omitempty"`
 	TotalAmount           float64            `bson:"total_amount,omitempty" json:"total_amount,omitempty"`
-	PaymentStatus         string             `bson:"payment_status,omitempty" json:"payment_status,omitempty"` // Pending, Paid, Failed, etc.
+	PaymentStatus         string             `bson:"payment_status,omitempty" json:"payment_status,omitempty"`
 	PaymentVirtualAccount string             `bson:"payment_virtual_account,omitempty" json:"payment_virtual_account,omitempty"`
-	OrderStatus           string             `bson:"order_status,omitempty" json:"order_status,omitempty"` // Pending, Accepted, Rejected, Completed
-	OwnerID               primitive.ObjectID `bson:"owner_id,omitempty" json:"owner_id,omitempty"`         // Menambahkan field OwnerID
+	PaymentURL            string             `bson:"payment_url,omitempty" json:"payment_url,omitempty"` // URL pembayaran
+	OrderStatus           string             `bson:"order_status,omitempty" json:"order_status,omitempty"`
+	OwnerID               primitive.ObjectID `bson:"owner_id,omitempty" json:"owner_id,omitempty"` // Diambil untuk mendapatkan nomor WhatsApp pemilik dari collection users
 	CreatedAt             string             `bson:"created_at,omitempty" json:"created_at,omitempty"`
 	UpdatedAt             string             `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
