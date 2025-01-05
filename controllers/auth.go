@@ -143,113 +143,27 @@ func HandleGoogleLogin(c *gin.Context) {
 	c.Redirect(http.StatusFound, url)
 }
 
-// func HandleGoogleCallback(c *gin.Context) {
-// 	state := c.Query("state")
-//     if state != oauthStateString {
-//         c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
-//         return
-//     }
-// 	// Ambil "code" dari query parameter
-// 	code := c.Query("code")
-// 	if code == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
-// 		return
-// 	}
-
-// 	// Tukar "code" dengan token Google
-// 	token, err := googleOauthConfig.Exchange(c, code)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
-// 		return
-// 	}
-
-// 	// Ambil informasi user dari Google API
-// 	client := googleOauthConfig.Client(c, token)
-// 	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
-// 		return
-// 	}
-// 	defer resp.Body.Close()
-
-// 	var userInfo struct {
-// 		Email string `json:"email"`
-// 		Name  string `json:"name"`
-// 	}
-// 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info"})
-// 		return
-// 	}
-
-// 	// Cek apakah email sudah ada di database
-// 	var user models.User
-// 	collection := config.DB.Collection("users")
-// 	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
-
-// 	if err == mongo.ErrNoDocuments {
-// 		// Jika user tidak ditemukan, buat entri baru dengan role kosong
-// 		newUser := models.User{
-// 			ID:          primitive.NewObjectID(),
-// 			FullName:    userInfo.Name,
-// 			Email:       userInfo.Email,
-// 			Role:        "", // Role kosong
-// 			VerifiedEmail:    true,
-// 		}
-// 		_, err = collection.InsertOne(context.TODO(), newUser)
-// 		if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-// 			return
-// 		}
-
-// 		c.JSON(http.StatusOK, gin.H{
-// 			"status":   "role_selection_required",
-// 			"email":    userInfo.Email,
-// 			"fullName": userInfo.Name,
-// 		})
-// 		return
-// 	} else if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-// 		return
-// 	}
-
-// 	// Jika user ditemukan, cek apakah role sudah diatur
-// 	if user.Role == "" {
-// 		c.JSON(http.StatusOK, gin.H{
-// 			"status":   "role_selection_required",
-// 			"email":    user.Email,
-// 			"fullName": user.FullName,
-// 		})
-// 		return
-// 	}
-
-// 	// Jika user dan role valid, login berhasil
-// 	tokenString, err := generateToken(user.ID, user.Role)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"message": "Login successful",
-// 		"token":   tokenString,
-// 	})
-// }
-
 func HandleGoogleCallback(c *gin.Context) {
+	state := c.Query("state")
+    if state != oauthStateString {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
+        return
+    }
+	// Ambil "code" dari query parameter
 	code := c.Query("code")
 	if code == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
 		return
 	}
 
-	// Tukar code dengan token
+	// Tukar "code" dengan token Google
 	token, err := googleOauthConfig.Exchange(c, code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
 		return
 	}
 
-	// Ambil user info dari Google API
+	// Ambil informasi user dari Google API
 	client := googleOauthConfig.Client(c, token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
@@ -258,39 +172,67 @@ func HandleGoogleCallback(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	var userInfo map[string]interface{}
+	var userInfo struct {
+		Email string `json:"email"`
+		Name  string `json:"name"`
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info"})
 		return
 	}
-	ctx := context.Background()
-	// Cek apakah user sudah ada di database
-	email := userInfo["email"].(string)
+
+	// Cek apakah email sudah ada di database
 	var user models.User
-	err = config.DB.Collection("users").FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	collection := config.DB.Collection("users")
+	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
 	if err == mongo.ErrNoDocuments {
-		// User tidak ada, buat akun baru
+		// Jika user tidak ditemukan, buat entri baru dengan role kosong
 		newUser := models.User{
-			Email: email,
-			FullName:  userInfo["name"].(string),
-			Role:  "user", // Default role
-			// Data lain seperti phone number bisa ditambahkan
+			ID:          primitive.NewObjectID(),
+			FullName:    userInfo.Name,
+			Email:       userInfo.Email,
+			Role:        "", // Role kosong
+			VerifiedEmail:    true,
 		}
-		_, err := config.DB.Collection("users").InsertOne(ctx, newUser)
+		_, err = collection.InsertOne(context.TODO(), newUser)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "Account created", "user": newUser})
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "role_selection_required",
+			"email":    userInfo.Email,
+			"fullName": userInfo.Name,
+		})
+		return
 	} else if err != nil {
-		// Error lain
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
-	} else {
-		// User sudah ada, login
-		c.JSON(http.StatusOK, gin.H{"message": "Login successful", "user": user})
 	}
+
+	// Jika user ditemukan, cek apakah role sudah diatur
+	if user.Role == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "role_selection_required",
+			"email":    user.Email,
+			"fullName": user.FullName,
+		})
+		return
+	}
+
+	// Jika user dan role valid, login berhasil
+	tokenString, err := generateToken(user.ID, user.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login successful",
+		"token":   tokenString,
+	})
 }
 
 
