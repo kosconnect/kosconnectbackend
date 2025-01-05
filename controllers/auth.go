@@ -265,12 +265,14 @@ func Login(c *gin.Context) {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
+
+	// Bind JSON input
 	if err := c.ShouldBindJSON(&loginData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
-	// Find user by email
+	// Cari user berdasarkan email
 	collection := config.DB.Collection("users")
 	var user models.User
 	err := collection.FindOne(context.TODO(), bson.M{"email": loginData.Email}).Decode(&user)
@@ -279,7 +281,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Check password
+	// Cek password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginData.Password))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
@@ -293,8 +295,31 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Set token sebagai cookie
+	c.SetCookie(
+		"authToken",    // Cookie name
+		token,          // Value
+		3600*24*7,      // Expiry time in seconds (7 days)
+		"/",            // Path
+		"",             // Domain (empty means same as the server's domain)
+		true,           // Secure (true for HTTPS only)
+		true,           // HttpOnly (true prevents JavaScript access)
+	)
+
+	// Set role sebagai cookie
+	c.SetCookie(
+		"userRole",     // Cookie name
+		user.Role,      // Value
+		3600*24*7,      // Expiry time in seconds (7 days)
+		"/",            // Path
+		"",             // Domain (empty means same as the server's domain)
+		true,           // Secure (true for HTTPS only)
+		false,          // HttpOnly (false to allow JavaScript access)
+	)
+
+	// Kirim respon sukses
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
-		"token":   token,
+		"role":    user.Role,
 	})
 }
