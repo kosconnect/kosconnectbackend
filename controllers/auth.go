@@ -110,7 +110,12 @@ func Register(c *gin.Context) {
 	if user.Role == "" {
 		user.Role = "user" // Default role
 	}
-
+	
+	if len(user.Password) < 6 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 6 characters long"})
+		return
+	}
+	
 	// Set user ID dan waktu
 	user.ID = primitive.NewObjectID()
 	user.CreatedAt = time.Now()
@@ -320,6 +325,7 @@ func Login(c *gin.Context) {
 	// Kirim respon sukses
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
+		"token": token,
 		"role":    user.Role,
 	})
 }
