@@ -9,19 +9,25 @@ import (
 // CORSMiddleware sets up the Cross-Origin Resource Sharing (CORS) headers
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Ambil Origin dari request
 		origin := c.Request.Header.Get("Origin")
 		allowedOrigins := []string{
-			"https://kosconnect.github.io/",
-			"https://localhost:8080/", // Tambahkan origin lainnya sesuai kebutuhan
+			"https://kosconnect.github.io",
+			"http://localhost:8080", // Jika Anda menggunakan localhost untuk testing
 		}
 
-		// Cek jika origin request ada di daftar origin yang diizinkan
+		allowed := false
 		for _, allowedOrigin := range allowedOrigins {
 			if origin == allowedOrigin {
+				allowed = true
 				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 				break
 			}
+		}
+
+		if !allowed {
+			// Jika origin tidak diizinkan, beri respons atau log (opsional)
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Origin not allowed"})
+			return
 		}
 
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -29,13 +35,13 @@ func CORSMiddleware() gin.HandlerFunc {
 		c.Writer.Header().Set("Access-Control-Expose-Headers", "Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
-		// Handle OPTIONS method
+		// Tangani metode OPTIONS
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusOK)
 			return
 		}
 
-		// Process request
+		// Lanjutkan ke handler berikutnya
 		c.Next()
 	}
 }
