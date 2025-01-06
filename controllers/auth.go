@@ -243,27 +243,16 @@ func HandleGoogleCallback(c *gin.Context) {
 		true,        // HttpOnly (menghindari akses JS)
 	)
 
-	// Kirim response JSON dengan status OK
-	c.JSON(http.StatusOK, gin.H{
-		"message":     "Login successful",
-		"token":       tokenString,
-		"role":        user.Role,
-		"redirectURL": redirectURL, // Ini akan memberitahu frontend ke mana harus diarahkan
-	})
+	// Kirim response JSON dengan status 303 (See Other) - memberi tahu frontend bahwa permintaan berhasil dan ada redirect
+c.JSON(http.StatusSeeOther, gin.H{
+	"message":     "Login successful, redirecting...",
+	"token":       tokenString,
+	"role":        user.Role,
+	"redirectURL": redirectURL, // Memberikan informasi URL yang akan digunakan frontend
+})
 
-	// Pastikan redirect hanya dilakukan setelah JSON dikirim
-	if user.Role != "" {
-		if user.Role == "user" || user.Role == "owner" || user.Role == "admin" {
-			c.Redirect(http.StatusFound, redirectURL)
-		} else {
-			// Jika role tidak valid
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user role"})
-		}
-	} else {
-		// Handle jika role tidak valid atau tidak ditemukan
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-	}
-
+// Melakukan redirect setelah JSON response
+c.Redirect(http.StatusFound, redirectURL)
 }
 
 func AssignRole(c *gin.Context) {
