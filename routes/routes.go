@@ -15,7 +15,7 @@ func AuthRoutes(router *gin.Engine) {
 		// Tambahkan routes untuk OAuth Google
 		authGroup.GET("/google/login", controllers.HandleGoogleLogin)
 		authGroup.GET("/callback", controllers.HandleGoogleCallback)
-		authGroup.POST("/assign-role", controllers.AssignRole)
+		authGroup.PUT("/assign-role", controllers.AssignRole)
 	}
 }
 
