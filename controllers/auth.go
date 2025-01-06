@@ -264,7 +264,6 @@ func HandleGoogleCallback(c *gin.Context) {
         "message":    "Login successful",
         "token":      tokenString,
         "role":       user.Role,
-        "redirectURL": redirectURL,
     })
 
 	// Lakukan redirect setelah proses selesai
