@@ -222,29 +222,7 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Set token sebagai cookie
-	c.SetCookie(
-		"authToken", // Cookie name
-		tokenString, // Value
-		3600*24*7,   // Expiry time in seconds (7 days)
-		"/",         // Path
-		"",          // Domain (empty means same as the server's domain)
-		true,        // Secure (true for HTTPS only)
-		true,        // HttpOnly (true prevents JavaScript access)
-	)
-
-	// Set role sebagai cookie
-	c.SetCookie(
-		"userRole", // Cookie name
-		user.Role,  // Value
-		3600*24*7,  // Expiry time in seconds (7 days)
-		"/",        // Path
-		"",         // Domain (empty means same as the server's domain)
-		true,       // Secure (true for HTTPS only)
-		false,      // HttpOnly (false to allow JavaScript access)
-	)
-
-	// Redirect setelah set cookies
+	// Tentukan URL untuk redirect
 	redirectURL := "https://kosconnect.github.io/"
 	if user.Role == "user" {
 		redirectURL = "https://kosconnect.github.io/"
@@ -254,27 +232,38 @@ func HandleGoogleCallback(c *gin.Context) {
 		redirectURL = "https://kosconnect.github.io/dashboard-admin"
 	}
 
-	// Response JSON (Opsional, bisa diproses frontend)
+	// Set cookies dan token
+	c.SetCookie(
+		"authToken", // Nama cookie
+		tokenString, // Nilai cookie
+		3600*24*7,   // Durasi cookie (7 hari)
+		"/",         // Path
+		"",          // Domain
+		true,        // Secure (hanya untuk HTTPS)
+		true,        // HttpOnly (menghindari akses JS)
+	)
+
+	// Kirim response JSON dengan status OK
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "Login successful",
 		"token":       tokenString,
 		"role":        user.Role,
-		"redirectURL": redirectURL, // Redirect URL dikirim
+		"redirectURL": redirectURL, // Ini akan memberitahu frontend ke mana harus diarahkan
 	})
 
-	// Periksa status HTTP dan lakukan redirect jika berhasil
-	if c.Writer.Status() == http.StatusOK && redirectURL != "" {
-		// Pastikan role valid
+	// Pastikan redirect hanya dilakukan setelah JSON dikirim
+	if user.Role != "" {
 		if user.Role == "user" || user.Role == "owner" || user.Role == "admin" {
 			c.Redirect(http.StatusFound, redirectURL)
 		} else {
-			// Handle jika role tidak valid
+			// Jika role tidak valid
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user role"})
 		}
 	} else {
-		// Handle jika status HTTP bukan 200 atau redirectURL kosong
+		// Handle jika role tidak valid atau tidak ditemukan
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 	}
+
 }
 
 func AssignRole(c *gin.Context) {
