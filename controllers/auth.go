@@ -244,7 +244,7 @@ func HandleGoogleCallback(c *gin.Context) {
 	)
 
 	// Kirim response JSON dengan status 303 (See Other) - memberi tahu frontend bahwa permintaan berhasil dan ada redirect
-c.JSON(http.StatusSeeOther, gin.H{
+c.JSON(http.StatusAccepted, gin.H{
 	"message":     "Login successful, redirecting...",
 	"token":       tokenString,
 	"role":        user.Role,
