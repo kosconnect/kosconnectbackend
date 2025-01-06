@@ -248,7 +248,7 @@ func HandleGoogleCallback(c *gin.Context) {
 	redirectURL := "https://kosconnect.github.io/"
 	if user.Role == "user" {
 		redirectURL = "https://kosconnect.github.io/"
-	} else	if user.Role == "owner" {
+	} else if user.Role == "owner" {
 		redirectURL = "https://kosconnect.github.io/dashboard-owner"
 	} else if user.Role == "admin" {
 		redirectURL = "https://kosconnect.github.io/dashboard-admin"
@@ -262,17 +262,17 @@ func HandleGoogleCallback(c *gin.Context) {
 		"redirectURL": redirectURL, // Redirect URL dikirim
 	})
 
-	// Periksa status HTTP dan struktur JSON sebelum redirect
-	if c.Writer.Status() == http.StatusOK {
-		// Pastikan struktur JSON sesuai (sesuaikan dengan kebutuhan Anda)
-		if _, ok := c.Get("redirectURL"); ok {
+	// Periksa status HTTP dan lakukan redirect jika berhasil
+	if c.Writer.Status() == http.StatusOK && redirectURL != "" {
+		// Pastikan role valid
+		if user.Role == "user" || user.Role == "owner" || user.Role == "admin" {
 			c.Redirect(http.StatusFound, redirectURL)
 		} else {
-			// Handle jika tidak ada field "redirectURL" dalam JSON
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing redirectURL"})
+			// Handle jika role tidak valid
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user role"})
 		}
 	} else {
-		// Handle jika status HTTP bukan 200
+		// Handle jika status HTTP bukan 200 atau redirectURL kosong
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 	}
 }
