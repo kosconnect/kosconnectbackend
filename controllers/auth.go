@@ -259,14 +259,14 @@ func HandleGoogleCallback(c *gin.Context) {
 		redirectURL = "https://kosconnect.github.io/dashboard-admin"
 	}
 
+	c.Redirect(http.StatusFound, redirectURL)
+	
 	// Kirim respon sukses dengan URL redirect
     c.JSON(http.StatusOK, gin.H{
         "message":    "Login successful",
         "token":      tokenString,
         "role":       user.Role,
     })
-
-	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func AssignRole(c *gin.Context) {
