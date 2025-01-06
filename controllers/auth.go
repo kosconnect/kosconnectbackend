@@ -154,18 +154,21 @@ func HandleGoogleCallback(c *gin.Context) {
         return
     }
 
+    // Ambil "code" dari query parameter
     code := c.Query("code")
     if code == "" {
         c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
         return
     }
 
+    // Tukar "code" dengan token Google
     token, err := googleOauthConfig.Exchange(c, code)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
         return
     }
 
+    // Ambil informasi user dari Google API
     client := googleOauthConfig.Client(c, token)
     resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
     if err != nil {
@@ -183,11 +186,13 @@ func HandleGoogleCallback(c *gin.Context) {
         return
     }
 
+    // Cek apakah email sudah ada di database
     var user models.User
     collection := config.DB.Collection("users")
     err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
     if err == mongo.ErrNoDocuments {
+        // Jika user tidak ditemukan, buat entri baru dengan role kosong
         newUser := models.User{
             ID:            primitive.NewObjectID(),
             FullName:      userInfo.Name,
@@ -201,6 +206,7 @@ func HandleGoogleCallback(c *gin.Context) {
             return
         }
 
+        // Redirect ke frontend untuk pemilihan role
         c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email)
         return
     } else if err != nil {
@@ -208,18 +214,20 @@ func HandleGoogleCallback(c *gin.Context) {
         return
     }
 
-    // Tentukan role default jika kosong
+    // Jika user ditemukan, cek apakah role sudah diatur
     if user.Role == "" {
-        user.Role = "user" // Default role jika belum ada
-        collection.UpdateOne(context.TODO(), bson.M{"email": user.Email}, bson.M{"$set": bson.M{"role": user.Role}})
+        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email)
+        return
     }
 
+    // Jika user dan role valid, login berhasil
     tokenString, err := generateToken(user.ID, user.Role)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
         return
     }
 
+    // Set token sebagai cookie
     c.SetCookie(
         "authToken",    // Cookie name
         tokenString,    // Value
@@ -230,16 +238,18 @@ func HandleGoogleCallback(c *gin.Context) {
         true,           // HttpOnly (true prevents JavaScript access)
     )
 
-    c.SetCookie(
-        "userRole",     // Cookie name
-        user.Role,      // Value
-        3600*24*7,      // Expiry time in seconds (7 days)
-        "/",            // Path
-        "",             // Domain (empty means same as the server's domain)
-        true,           // Secure (true for HTTPS only)
-        false,          // HttpOnly (false to allow JavaScript access)
-    )
+	// Set role sebagai cookie
+	c.SetCookie(
+		"userRole",     // Cookie name
+		user.Role,      // Value
+		3600*24*7,      // Expiry time in seconds (7 days)
+		"/",            // Path
+		"",             // Domain (empty means same as the server's domain)
+		true,           // Secure (true for HTTPS only)
+		false,          // HttpOnly (false to allow JavaScript access)
+	)
 
+    // Redirect berdasarkan role
     redirectURL := "https://kosconnect.github.io/"
     if user.Role == "owner" {
         redirectURL = "https://kosconnect.github.io/dashboard-owner"
@@ -255,14 +265,6 @@ func AssignRole(c *gin.Context) {
         Email string `json:"email"`
         Role  string `json:"role"`
     }
-
-    // Periksa apakah ada cookie authToken untuk memastikan bahwa user sudah login
-    tokenCookie, err := c.Cookie("authToken")
-    if err != nil || tokenCookie == "" {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-        return
-    }
-
     if err := c.ShouldBindJSON(&payload); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
         return
@@ -276,13 +278,12 @@ func AssignRole(c *gin.Context) {
 
     // Update role di database
     collection := config.DB.Collection("users")
-    _, err = collection.UpdateOne(context.TODO(), bson.M{"email": payload.Email}, bson.M{"$set": bson.M{"role": payload.Role}})
+    _, err := collection.UpdateOne(context.TODO(), bson.M{"email": payload.Email}, bson.M{"$set": bson.M{"role": payload.Role}})
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update role"})
         return
     }
 
-    // Cukup kirimkan respons sukses tanpa redirect
     c.JSON(http.StatusOK, gin.H{"message": "Role assigned successfully"})
 }
 
