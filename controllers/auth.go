@@ -255,21 +255,11 @@ func HandleGoogleCallback(c *gin.Context) {
 		false,      // HttpOnly (false to allow JavaScript access)
 	)
 
-	// Kirim respons JSON ke frontend
-	redirectURL := "https://kosconnect.github.io/"
-	if user.Role == "" {
-		redirectURL = "https://kosconnect.github.io/auth?email=" + user.Email
-	} else if user.Role == "owner" {
-		redirectURL = "https://kosconnect.github.io/dashboard-owner"
-	} else if user.Role == "admin" {
-		redirectURL = "https://kosconnect.github.io/dashboard-admin"
-	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "Login successful",
 		"token":      tokenString,
 		"role":       user.Role,
-		"redirectURL": redirectURL,
 	})
 }
 
