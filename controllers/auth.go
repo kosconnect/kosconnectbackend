@@ -206,11 +206,8 @@ func HandleGoogleCallback(c *gin.Context) {
             return
         }
 
-        c.JSON(http.StatusOK, gin.H{
-            "status":   "role_selection_required",
-            "email":    userInfo.Email,
-            "fullName": userInfo.Name,
-        })
+        // Redirect ke frontend untuk pemilihan role
+        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email)
         return
     } else if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -219,11 +216,7 @@ func HandleGoogleCallback(c *gin.Context) {
 
     // Jika user ditemukan, cek apakah role sudah diatur
     if user.Role == "" {
-        c.JSON(http.StatusOK, gin.H{
-            "status":   "role_selection_required",
-            "email":    user.Email,
-            "fullName": user.FullName,
-        })
+        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email)
         return
     }
 
@@ -245,50 +238,55 @@ func HandleGoogleCallback(c *gin.Context) {
         true,           // HttpOnly (true prevents JavaScript access)
     )
 
-    // Set role sebagai cookie
-    c.SetCookie(
-        "userRole",     // Cookie name
-        user.Role,      // Value
-        3600*24*7,      // Expiry time in seconds (7 days)
-        "/",            // Path
-        "",             // Domain (empty means same as the server's domain)
-        true,           // Secure (true for HTTPS only)
-        false,          // HttpOnly (false to allow JavaScript access)
-    )
+	// Set role sebagai cookie
+	c.SetCookie(
+		"userRole",     // Cookie name
+		user.Role,      // Value
+		3600*24*7,      // Expiry time in seconds (7 days)
+		"/",            // Path
+		"",             // Domain (empty means same as the server's domain)
+		true,           // Secure (true for HTTPS only)
+		false,          // HttpOnly (false to allow JavaScript access)
+	)
 
-    // Kirim respon sukses
-    c.JSON(http.StatusOK, gin.H{
-        "message": "Login successful",
-        "token":   tokenString,
-        "role":    user.Role,
-    })
+    // Redirect berdasarkan role
+    redirectURL := "https://kosconnect.github.io/"
+    if user.Role == "owner" {
+        redirectURL = "https://kosconnect.github.io/dashboard-owner"
+    } else if user.Role == "admin" {
+        redirectURL = "https://kosconnect.github.io/dashboard-admin"
+    }
+
+    c.Redirect(http.StatusFound, redirectURL)
 }
 
 func AssignRole(c *gin.Context) {
-	type RoleRequest struct {
-		Email string `json:"email" binding:"required"`
-		Role  string `json:"role" binding:"required,oneof=user owner"`
-	}
+    var payload struct {
+        Email string `json:"email"`
+        Role  string `json:"role"`
+    }
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+        return
+    }
 
-	var req RoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
+    // Validasi role
+    if payload.Role != "user" && payload.Role != "owner" && payload.Role != "admin" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
+        return
+    }
 
-	collection := config.DB.Collection("users")
-	_, err := collection.UpdateOne(
-		context.TODO(),
-		bson.M{"email": req.Email},
-		bson.M{"$set": bson.M{"role": req.Role}},
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update role"})
-		return
-	}
+    // Update role di database
+    collection := config.DB.Collection("users")
+    _, err := collection.UpdateOne(context.TODO(), bson.M{"email": payload.Email}, bson.M{"$set": bson.M{"role": payload.Role}})
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update role"})
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{"message": "Role assigned successfully"})
+    c.JSON(http.StatusOK, gin.H{"message": "Role assigned successfully"})
 }
+
 
 func Login(c *gin.Context) {
 	var loginData struct {
