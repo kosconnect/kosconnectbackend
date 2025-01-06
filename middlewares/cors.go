@@ -19,7 +19,7 @@ func CORSMiddleware() gin.HandlerFunc {
 		allowed := false
 
 		// Pengecualian untuk Google OAuth endpoints
-		oauthEndpoints := []string{"/auth/google/login", "/auth/google/callback"}
+		oauthEndpoints := []string{"/auth/google/login", "/auth/callback"}
 		for _, endpoint := range oauthEndpoints {
 			if c.Request.URL.Path == endpoint {
 				allowed = true
