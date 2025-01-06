@@ -110,12 +110,12 @@ func Register(c *gin.Context) {
 	if user.Role == "" {
 		user.Role = "user" // Default role
 	}
-	
+
 	if len(user.Password) < 6 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 6 characters long"})
 		return
 	}
-	
+
 	// Set user ID dan waktu
 	user.ID = primitive.NewObjectID()
 	user.CreatedAt = time.Now()
@@ -148,143 +148,144 @@ func HandleGoogleLogin(c *gin.Context) {
 }
 
 func HandleGoogleCallback(c *gin.Context) {
-    state := c.Query("state")
-    if state != oauthStateString {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
-        return
-    }
+	state := c.Query("state")
+	if state != oauthStateString {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
+		return
+	}
 
-    // Ambil "code" dari query parameter
-    code := c.Query("code")
-    if code == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
-        return
-    }
+	// Ambil "code" dari query parameter
+	code := c.Query("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
+		return
+	}
 
-    // Tukar "code" dengan token Google
-    token, err := googleOauthConfig.Exchange(c, code)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
-        return
-    }
+	// Tukar "code" dengan token Google
+	token, err := googleOauthConfig.Exchange(c, code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
+		return
+	}
 
-    // Ambil informasi user dari Google API
-    client := googleOauthConfig.Client(c, token)
-    resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
-        return
-    }
-    defer resp.Body.Close()
+	// Ambil informasi user dari Google API
+	client := googleOauthConfig.Client(c, token)
+	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
+		return
+	}
+	defer resp.Body.Close()
 
-    var userInfo struct {
-        Email string `json:"email"`
-        Name  string `json:"name"`
-    }
-    if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info"})
-        return
-    }
+	var userInfo struct {
+		Email string `json:"email"`
+		Name  string `json:"name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info"})
+		return
+	}
 
-    // Cek apakah email sudah ada di database
-    var user models.User
-    collection := config.DB.Collection("users")
-    err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
+	// Cek apakah email sudah ada di database
+	var user models.User
+	collection := config.DB.Collection("users")
+	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
-    if err == mongo.ErrNoDocuments {
-        // Jika user tidak ditemukan, buat entri baru dengan role kosong
-        newUser := models.User{
-            ID:            primitive.NewObjectID(),
-            FullName:      userInfo.Name,
-            Email:         userInfo.Email,
-            Role:          "", // Role kosong
-            VerifiedEmail: true,
-        }
-        _, err = collection.InsertOne(context.TODO(), newUser)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-            return
-        }
+	if err == mongo.ErrNoDocuments {
+		// Jika user tidak ditemukan, buat entri baru dengan role kosong
+		newUser := models.User{
+			ID:            primitive.NewObjectID(),
+			FullName:      userInfo.Name,
+			Email:         userInfo.Email,
+			Role:          "", // Role kosong
+			VerifiedEmail: true,
+		}
+		_, err = collection.InsertOne(context.TODO(), newUser)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+			return
+		}
 
-        // Redirect ke frontend untuk pemilihan role
-        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email)
-        return
-    } else if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-        return
-    }
+		// Redirect ke frontend untuk pemilihan role
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email)
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
 
-    // Jika user ditemukan, cek apakah role sudah diatur
-    if user.Role == "" {
-        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email)
-        return
-    }
+	// Jika user ditemukan, cek apakah role sudah diatur
+	if user.Role == "" {
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email)
+		return
+	}
 
-    // Jika user dan role valid, login berhasil
-    tokenString, err := generateToken(user.ID, user.Role)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-        return
-    }
+	// Jika user dan role valid, login berhasil
+	tokenString, err := generateToken(user.ID, user.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
 
-    // Set token sebagai cookie
-    c.SetCookie(
-        "authToken",    // Cookie name
-        tokenString,    // Value
-        3600*24*7,      // Expiry time in seconds (7 days)
-        "/",            // Path
-        "",             // Domain (empty means same as the server's domain)
-        true,           // Secure (true for HTTPS only)
-        true,           // HttpOnly (true prevents JavaScript access)
-    )
+	// Set token sebagai cookie
+	c.SetCookie(
+		"authToken", // Cookie name
+		tokenString, // Value
+		3600*24*7,   // Expiry time in seconds (7 days)
+		"/",         // Path
+		"",          // Domain (empty means same as the server's domain)
+		true,        // Secure (true for HTTPS only)
+		true,        // HttpOnly (true prevents JavaScript access)
+	)
 
 	// Set role sebagai cookie
 	c.SetCookie(
-		"userRole",     // Cookie name
-		user.Role,      // Value
-		3600*24*7,      // Expiry time in seconds (7 days)
-		"/",            // Path
-		"",             // Domain (empty means same as the server's domain)
-		true,           // Secure (true for HTTPS only)
-		false,          // HttpOnly (false to allow JavaScript access)
+		"userRole", // Cookie name
+		user.Role,  // Value
+		3600*24*7,  // Expiry time in seconds (7 days)
+		"/",        // Path
+		"",         // Domain (empty means same as the server's domain)
+		true,       // Secure (true for HTTPS only)
+		false,      // HttpOnly (false to allow JavaScript access)
 	)
+	// Redirect berdasarkan role
+	redirectURL := "https://kosconnect.github.io/"
+	if user.Role == "user" {
+		redirectURL = "https://kosconnect.github.io/"
+	} else if user.Role == "owner" {
+		redirectURL = "https://kosconnect.github.io/dashboard-owner"
+	} else if user.Role == "admin" {
+		redirectURL = "https://kosconnect.github.io/dashboard-admin"
+	}
 
-    // Redirect berdasarkan role
-    redirectURL := "https://kosconnect.github.io/"
-    if user.Role == "owner" {
-        redirectURL = "https://kosconnect.github.io/dashboard-owner"
-    } else if user.Role == "admin" {
-        redirectURL = "https://kosconnect.github.io/dashboard-admin"
-    }
-
-    c.Redirect(http.StatusFound, redirectURL)
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func AssignRole(c *gin.Context) {
-    var payload struct {
-        Email string `json:"email"`
-        Role  string `json:"role"`
-    }
-    if err := c.ShouldBindJSON(&payload); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-        return
-    }
+	var payload struct {
+		Email string `json:"email"`
+		Role  string `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
 
-    // Validasi role
-    if payload.Role != "user" && payload.Role != "owner" && payload.Role != "admin" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
-        return
-    }
+	// Validasi role
+	if payload.Role != "user" && payload.Role != "owner" && payload.Role != "admin" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
+		return
+	}
 
-    // Update role di database
-    collection := config.DB.Collection("users")
-    _, err := collection.UpdateOne(context.TODO(), bson.M{"email": payload.Email}, bson.M{"$set": bson.M{"role": payload.Role}})
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update role"})
-        return
-    }
+	// Update role di database
+	collection := config.DB.Collection("users")
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"email": payload.Email}, bson.M{"$set": bson.M{"role": payload.Role}})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update role"})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{"message": "Role assigned successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Role assigned successfully"})
 }
 
 func Login(c *gin.Context) {
@@ -324,30 +325,30 @@ func Login(c *gin.Context) {
 
 	// Set token sebagai cookie
 	c.SetCookie(
-		"authToken",    // Cookie name
-		token,          // Value
-		3600*24*7,      // Expiry time in seconds (7 days)
-		"/",            // Path
-		"",             // Domain (empty means same as the server's domain)
-		true,           // Secure (true for HTTPS only)
-		true,           // HttpOnly (true prevents JavaScript access)
+		"authToken", // Cookie name
+		token,       // Value
+		3600*24*7,   // Expiry time in seconds (7 days)
+		"/",         // Path
+		"",          // Domain (empty means same as the server's domain)
+		true,        // Secure (true for HTTPS only)
+		true,        // HttpOnly (true prevents JavaScript access)
 	)
 
 	// Set role sebagai cookie
 	c.SetCookie(
-		"userRole",     // Cookie name
-		user.Role,      // Value
-		3600*24*7,      // Expiry time in seconds (7 days)
-		"/",            // Path
-		"",             // Domain (empty means same as the server's domain)
-		true,           // Secure (true for HTTPS only)
-		false,          // HttpOnly (false to allow JavaScript access)
+		"userRole", // Cookie name
+		user.Role,  // Value
+		3600*24*7,  // Expiry time in seconds (7 days)
+		"/",        // Path
+		"",         // Domain (empty means same as the server's domain)
+		true,       // Secure (true for HTTPS only)
+		false,      // HttpOnly (false to allow JavaScript access)
 	)
 
 	// Kirim respon sukses
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
-		"token": token,
+		"token":   token,
 		"role":    user.Role,
 	})
 }
