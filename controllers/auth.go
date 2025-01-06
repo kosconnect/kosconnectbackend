@@ -132,7 +132,7 @@ func Register(c *gin.Context) {
 }
 
 var googleOauthConfig = oauth2.Config{
-	RedirectURL:  "https://kosconnect.github.io/auth", // Sesuaikan dengan konfigurasi Anda
+	RedirectURL:  "https://kosconnect-server.vercel.app/auth/callback", // Sesuaikan dengan konfigurasi Anda
 	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 	ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
