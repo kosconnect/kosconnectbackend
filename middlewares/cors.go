@@ -12,15 +12,30 @@ func CORSMiddleware() gin.HandlerFunc {
 		origin := c.Request.Header.Get("Origin")
 		allowedOrigins := []string{
 			"https://kosconnect.github.io",
-			"http://localhost:8080", // Jika Anda menggunakan localhost untuk testing
+			"http://localhost:8080", // Testing dengan localhost
+			"https://accounts.google.com", // Google OAuth origin
 		}
 
 		allowed := false
-		for _, allowedOrigin := range allowedOrigins {
-			if origin == allowedOrigin {
+
+		// Pengecualian untuk Google OAuth endpoints
+		oauthEndpoints := []string{"/auth/google/login", "/auth/google/callback"}
+		for _, endpoint := range oauthEndpoints {
+			if c.Request.URL.Path == endpoint {
 				allowed = true
 				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 				break
+			}
+		}
+
+		// Periksa apakah origin berada dalam daftar origin yang diizinkan
+		if !allowed {
+			for _, allowedOrigin := range allowedOrigins {
+				if origin == allowedOrigin {
+					allowed = true
+					c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+					break
+				}
 			}
 		}
 
