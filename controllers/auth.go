@@ -237,16 +237,15 @@ func HandleGoogleCallback(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
-
 	// Set token in cookie
 	c.SetCookie(
 		"authToken",
 		tokenString,
 		3600*24*7, // 7 days
 		"/",
-		"",    // Domain kosong untuk mengikuti domain server
-		true,  // Secure (hanya untuk HTTPS)
-		true,  // HttpOnly (tidak bisa diakses JavaScript)
+		"",
+		true,  // Secure
+		true,  // HttpOnly
 	)
 
 	// Determine redirect URL
@@ -262,8 +261,12 @@ func HandleGoogleCallback(c *gin.Context) {
 		redirectURL = "https://kosconnect.github.io/"
 	}
 
-	// Redirect user
-	c.Redirect(http.StatusFound, redirectURL)
+	// Respond with redirect URL
+	c.JSON(http.StatusSeeOther, gin.H{
+		"message":     "Login successful",
+		"redirectURL": redirectURL,
+		"role":        user.Role,
+	})
 }
 
 func AssignRole(c *gin.Context) {
