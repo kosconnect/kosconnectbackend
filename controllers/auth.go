@@ -161,13 +161,13 @@ func HandleGoogleCallback(c *gin.Context) {
 	}
 
 	// Tukar "code" dengan token Google
-	token, err := googleOauthConfig.Exchange(context.TODO(), code)
+	token, err := googleOauthConfig.Exchange(c, code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
 		return
 	}
 
-	client := googleOauthConfig.Client(context.TODO(), token)
+	client := googleOauthConfig.Client(c, token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
@@ -184,18 +184,16 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Cek apakah user sudah ada di database
 	var user models.User
 	collection := config.DB.Collection("users")
 	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
 	if err == mongo.ErrNoDocuments {
-		// User belum ada, buat user baru
 		newUser := models.User{
 			ID:            primitive.NewObjectID(),
 			FullName:      userInfo.Name,
 			Email:         userInfo.Email,
-			Role:          "", // Role kosong untuk sementara
+			Role:          "", // Role kosong
 			VerifiedEmail: true,
 		}
 		_, err = collection.InsertOne(context.TODO(), newUser)
@@ -213,23 +211,49 @@ func HandleGoogleCallback(c *gin.Context) {
 	}
 
 	if user.Role == "" {
-		// Jika user sudah ada tetapi belum memiliki role
 		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email)
 		return
 	}
 
-	// Generate token dan kirimkan ke frontend
+	// Generate token dan set cookies
 	tokenString, err := generateToken(user.ID, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"token":   tokenString,
-		"role":    user.Role,
-	})
+	// Tentukan URL untuk redirect
+	redirectURL := "https://kosconnect.github.io/"
+	if user.Role == "user" {
+		redirectURL = "https://kosconnect.github.io/"
+	} else if user.Role == "owner" {
+		redirectURL = "https://kosconnect.github.io/dashboard-owner"
+	} else if user.Role == "admin" {
+		redirectURL = "https://kosconnect.github.io/dashboard-admin"
+	}
+
+	// Set cookies dan token
+	c.SetCookie(
+		"authToken", // Nama cookie
+		tokenString, // Nilai cookie
+		3600*24*7,   // Durasi cookie (7 hari)
+		"/",         // Path
+		"",          // Domain
+		true,        // Secure (hanya untuk HTTPS)
+		true,        // HttpOnly (menghindari akses JS)
+	)
+
+	// Prepare JSON response with redirect URL
+	response := gin.H{
+		"message":     "Login successful, redirecting...",
+		"token":       tokenString,
+		"role":        user.Role,
+		"redirectURL": redirectURL,
+	}
+
+	// Send JSON response with status 303 (See Other) and perform redirect
+	c.JSON(http.StatusAccepted, response)
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func AssignRole(c *gin.Context) {
