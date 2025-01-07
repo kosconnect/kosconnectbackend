@@ -2,8 +2,11 @@ package controllers
 
 import (
 	"context"
+	"crypto/rand"
 	"net/http"
+
 	// "regexp"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"time"
@@ -131,6 +134,7 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
 }
 
+// Google OAuth Configuration
 var googleOauthConfig = oauth2.Config{
 	RedirectURL:  "https://kosconnect-server.vercel.app/auth/callback", // Sesuaikan dengan konfigurasi Anda
 	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
@@ -139,14 +143,22 @@ var googleOauthConfig = oauth2.Config{
 	Endpoint:     google.Endpoint,
 }
 
-var oauthStateString = "random-state-string" // Bisa diganti dengan nilai dinamis untuk keamanan
+var oauthStateString = generateStateOauthCookie()
 
-// HandleGoogleLogin mengarahkan pengguna ke halaman login Google
-func HandleGoogleLogin(c *gin.Context) {
-	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
-	c.Redirect(http.StatusFound, url)
+// Generate random state for security
+func generateStateOauthCookie() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)
 }
 
+// HandleGoogleLogin redirects the user to the Google login page
+func HandleGoogleLogin(c *gin.Context) {
+	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
+	c.Redirect(http.StatusTemporaryRedirect, url)
+}
+
+// HandleGoogleCallback processes the Google OAuth callback
 func HandleGoogleCallback(c *gin.Context) {
 	state := c.Query("state")
 	if state != oauthStateString {
@@ -160,14 +172,15 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Tukar "code" dengan token Google
-	token, err := googleOauthConfig.Exchange(c, code)
+	// Exchange the code for a token
+	token, err := googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
 		return
 	}
 
-	client := googleOauthConfig.Client(c, token)
+	// Fetch user info from Google
+	client := googleOauthConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
@@ -184,11 +197,13 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
+	// Check if user exists in the database
 	var user models.User
 	collection := config.DB.Collection("users")
 	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
 	if err == mongo.ErrNoDocuments {
+		// Create a new user
 		newUser := models.User{
 			ID:            primitive.NewObjectID(),
 			FullName:      userInfo.Name,
@@ -202,7 +217,7 @@ func HandleGoogleCallback(c *gin.Context) {
 			return
 		}
 
-		// Redirect ke frontend untuk pemilihan role
+		// Redirect to frontend for role selection
 		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email)
 		return
 	} else if err != nil {
@@ -210,50 +225,49 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
+	// Check role and redirect
 	if user.Role == "" {
 		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email)
 		return
 	}
 
-	// Generate token dan set cookies
+	// Generate JWT token
 	tokenString, err := generateToken(user.ID, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	// Tentukan URL untuk redirect
-	redirectPAGE := "https://kosconnect.github.io/"
-	if user.Role == "user" {
-		redirectPAGE = "https://kosconnect.github.io/"
-	} else if user.Role == "owner" {
-		redirectPAGE = "https://kosconnect.github.io/dashboard-owner"
-	} else if user.Role == "admin" {
-		redirectPAGE = "https://kosconnect.github.io/dashboard-admin"
-	}
-
-	// Set cookies dan token
+	// Set token in cookie
 	c.SetCookie(
-		"authToken", // Nama cookie
-		tokenString, // Nilai cookie
-		3600*24*7,   // Durasi cookie (7 hari)
-		"/",         // Path
-		"",          // Domain
-		true,        // Secure (hanya untuk HTTPS)
-		true,        // HttpOnly (menghindari akses JS)
+		"authToken",
+		tokenString,
+		3600*24*7, // 7 days
+		"/",
+		"",
+		true,  // Secure
+		true,  // HttpOnly
 	)
 
-	// Prepare JSON response with redirect URL
-	response := gin.H{
-		"message":     "Login successful, redirecting...",
-		"token":       tokenString,
-		"role":        user.Role,
-		"redirectURL": redirectPAGE,
+	// Determine redirect URL
+	var redirectURL string
+	switch user.Role {
+	case "user":
+		redirectURL = "https://kosconnect.github.io/"
+	case "owner":
+		redirectURL = "https://kosconnect.github.io/dashboard-owner"
+	case "admin":
+		redirectURL = "https://kosconnect.github.io/dashboard-admin"
+	default:
+		redirectURL = "https://kosconnect.github.io/"
 	}
 
-	// Send JSON response with status 303 (See Other) and perform redirect
-	c.JSON(http.StatusAccepted, response)
-	c.Redirect(http.StatusFound, redirectPAGE)
+	// Respond with redirect URL
+	c.JSON(http.StatusSeeOther, gin.H{
+		"message":     "Login successful",
+		"redirectURL": redirectURL,
+		"role":        user.Role,
+	})
 }
 
 func AssignRole(c *gin.Context) {
