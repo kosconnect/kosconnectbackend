@@ -231,22 +231,27 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token
-	tokenString, err := generateToken(user.ID, user.Role)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+	if user.Role == "user" {
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/")
 		return
 	}
-	// Set token in cookie
-	c.SetCookie(
-		"authToken",
-		tokenString,
-		3600*24*7, // 7 days
-		"/",
-		"",
-		true,  // Secure
-		true,  // HttpOnly
-	)
+
+	// Generate JWT token
+	// tokenString, err := generateToken(user.ID, user.Role)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+	// 	return
+	// }
+	// // Set token in cookie
+	// c.SetCookie(
+	// 	"authToken",
+	// 	tokenString,
+	// 	3600*24*7, // 7 days
+	// 	"/",
+	// 	"",
+	// 	true,  // Secure
+	// 	true,  // HttpOnly
+	// )
 
 	// Determine redirect URL
 	var redirectURL string
@@ -264,6 +269,7 @@ func HandleGoogleCallback(c *gin.Context) {
 	// Respond with redirect URL
 	c.JSON(http.StatusSeeOther, gin.H{
 		"message":     "Login successful",
+		// "token": tokenString,
 		"redirectURL": redirectURL,
 		"role":        user.Role,
 	})
