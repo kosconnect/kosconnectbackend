@@ -223,13 +223,13 @@ func HandleGoogleCallback(c *gin.Context) {
 	}
 
 	// Tentukan URL untuk redirect
-	redirectURL := "https://kosconnect.github.io/"
+	redirectPAGE := "https://kosconnect.github.io/"
 	if user.Role == "user" {
-		redirectURL = "https://kosconnect.github.io/"
+		redirectPAGE = "https://kosconnect.github.io/"
 	} else if user.Role == "owner" {
-		redirectURL = "https://kosconnect.github.io/dashboard-owner"
+		redirectPAGE = "https://kosconnect.github.io/dashboard-owner"
 	} else if user.Role == "admin" {
-		redirectURL = "https://kosconnect.github.io/dashboard-admin"
+		redirectPAGE = "https://kosconnect.github.io/dashboard-admin"
 	}
 
 	// Set cookies dan token
@@ -248,12 +248,12 @@ func HandleGoogleCallback(c *gin.Context) {
 		"message":     "Login successful, redirecting...",
 		"token":       tokenString,
 		"role":        user.Role,
-		"redirectURL": redirectURL,
+		"redirectURL": redirectPAGE,
 	}
 
 	// Send JSON response with status 303 (See Other) and perform redirect
 	c.JSON(http.StatusAccepted, response)
-	c.Redirect(http.StatusFound, redirectURL)
+	c.Redirect(http.StatusFound, redirectPAGE)
 }
 
 func AssignRole(c *gin.Context) {
