@@ -244,9 +244,9 @@ func HandleGoogleCallback(c *gin.Context) {
 		tokenString,
 		3600*24*7, // 7 days
 		"/",
-		"",
-		true,  // Secure
-		true,  // HttpOnly
+		"",    // Domain kosong untuk mengikuti domain server
+		true,  // Secure (hanya untuk HTTPS)
+		true,  // HttpOnly (tidak bisa diakses JavaScript)
 	)
 
 	// Determine redirect URL
@@ -262,12 +262,8 @@ func HandleGoogleCallback(c *gin.Context) {
 		redirectURL = "https://kosconnect.github.io/"
 	}
 
-	// Respond with redirect URL
-	c.JSON(http.StatusSeeOther, gin.H{
-		"message":     "Login successful",
-		"redirectURL": redirectURL,
-		"role":        user.Role,
-	})
+	// Redirect user
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func AssignRole(c *gin.Context) {
