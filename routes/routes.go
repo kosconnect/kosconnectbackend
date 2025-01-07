@@ -16,6 +16,7 @@ func AuthRoutes(router *gin.Engine) {
 		authGroup.GET("/google/login", controllers.HandleGoogleLogin)
 		authGroup.Any("/callback", controllers.HandleGoogleCallback)
 		authGroup.PUT("/assign-role", controllers.AssignRole)
+		authGroup.POST("/googleauth", controllers.GoogleAuth)
 	}
 }
 
