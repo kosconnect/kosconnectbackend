@@ -3,6 +3,8 @@ package controllers
 import (
 	"context"
 	"crypto/rand"
+	// "os/user"
+
 	// "fmt"
 	// "log"
 	"net/http"
@@ -163,76 +165,75 @@ func HandleGoogleLogin(c *gin.Context) {
 }
 
 func HandleGoogleCallback(c *gin.Context) {
-    code := c.Query("code")
-    if code == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
-        return
-    }
+	code := c.Query("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
+		return
+	}
 
-    // Exchange the code for a token
-    token, err := googleOauthConfig.Exchange(context.Background(), code)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token: " + err.Error()})
-        return
-    }
+	// Exchange the code for a token
+	token, err := googleOauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token: " + err.Error()})
+		return
+	}
 
-    // Fetch user info from Google
-    client := googleOauthConfig.Client(context.Background(), token)
-    resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info: " + err.Error()})
-        return
-    }
-    defer resp.Body.Close()
+	// Fetch user info from Google
+	client := googleOauthConfig.Client(context.Background(), token)
+	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
 
-    var userInfo struct {
-        Email        string `json:"email"`
-        Name         string `json:"name"`
-        VerifiedEmail bool   `json:"verified_email"`
-    }
-    if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info: " + err.Error()})
-        return
-    }
+	var userInfo struct {
+		Email         string `json:"email"`
+		Name          string `json:"name"`
+		VerifiedEmail bool   `json:"verified_email"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info: " + err.Error()})
+		return
+	}
 
-    // Check if user exists in database
-    var user models.User
-    collection := config.DB.Collection("users")
-    err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
+	// Check if user exists in database
+	var user models.User
+	collection := config.DB.Collection("users")
+	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
-    if err == mongo.ErrNoDocuments {
-        // Create new user
-        newUser := models.User{
-            ID:            primitive.NewObjectID(),
-            FullName:      userInfo.Name,
-            Email:         userInfo.Email,
-            Role:          "", // Role belum ditentukan
-            VerifiedEmail: userInfo.VerifiedEmail,
-        }
-        _, err = collection.InsertOne(context.TODO(), newUser)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-            return
-        }
+	if err == mongo.ErrNoDocuments {
+		// Create new user
+		newUser := models.User{
+			ID:            primitive.NewObjectID(),
+			FullName:      userInfo.Name,
+			Email:         userInfo.Email,
+			Role:          "", // Role belum ditentukan
+			VerifiedEmail: userInfo.VerifiedEmail,
+		}
+		_, err = collection.InsertOne(context.TODO(), newUser)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+			return
+		}
 
-        // Redirect to role assignment page
-        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email+"&id="+newUser.ID.Hex())
-        return
-    } else if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
-        return
-    }
+		// Redirect to role assignment page
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email+"&id="+newUser.ID.Hex())
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
+		return
+	}
 
-    // If role is not assigned
-    if user.Role == "" {
-        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&id="+user.ID.Hex())
-        return
-    }
+	// If role is not assigned
+	if user.Role == "" {
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&id="+user.ID.Hex())
+		return
+	}
 
-    // Redirect user based on role
-    c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.ID.Hex())
+	// Redirect user based on role
+	c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.ID.Hex())
 }
-
 
 // func getUserDataFromGoogle(code string) (*models.User, error) {
 //     // Exchange the code for a token
@@ -303,28 +304,48 @@ func AssignRole(c *gin.Context) {
 
 func GoogleAuth(c *gin.Context) {
 	var payload struct {
-		ID    primitive.ObjectID `json:"id"`
-		Email string `json:"email"`
-		Role  string `json:"role"`
+		Email string `json:"email" binding:"required,email"`
+		Role  string `json:"role" binding:"required"`
 	}
 
+	// Validasi input payload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
+	// Validasi role
+	if payload.Role != "user" && payload.Role != "owner" && payload.Role != "admin" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
+		return
+	}
+
+	// Cari user berdasarkan email
+	collection := config.DB.Collection("users")
+	var user models.User
+	err := collection.FindOne(context.TODO(), bson.M{"email": payload.Email}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+
 	// Generate JWT token
-	token, err := generateToken(payload.ID, payload.Role)
+	token, err := generateToken(user.ID, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	// Set cookies
+	// Set cookies (secure cookie untuk HTTPS)
 	c.SetCookie("authToken", token, 3600*24*7, "/", "", true, true)
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "role": payload.Role})
-}
 
+	// Response sukses
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login successful",
+		"role":    user.Role,
+		"token":   token,
+	})
+}
 
 func Login(c *gin.Context) {
 	var loginData struct {
