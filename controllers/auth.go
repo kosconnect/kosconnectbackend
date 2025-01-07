@@ -147,114 +147,6 @@ func HandleGoogleLogin(c *gin.Context) {
 	c.Redirect(http.StatusFound, url)
 }
 
-// func HandleGoogleCallback(c *gin.Context) {
-// 	state := c.Query("state")
-// 	if state != oauthStateString {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
-// 		return
-// 	}
-
-// 	code := c.Query("code")
-// 	if code == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
-// 		return
-// 	}
-
-// 	// Tukar "code" dengan token Google
-// 	token, err := googleOauthConfig.Exchange(c, code)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
-// 		return
-// 	}
-
-// 	client := googleOauthConfig.Client(c, token)
-// 	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
-// 		return
-// 	}
-// 	defer resp.Body.Close()
-
-// 	var userInfo struct {
-// 		Email string `json:"email"`
-// 		Name  string `json:"name"`
-// 	}
-// 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info"})
-// 		return
-// 	}
-
-// 	var user models.User
-// 	collection := config.DB.Collection("users")
-// 	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
-
-// 	if err == mongo.ErrNoDocuments {
-// 		newUser := models.User{
-// 			ID:            primitive.NewObjectID(),
-// 			FullName:      userInfo.Name,
-// 			Email:         userInfo.Email,
-// 			Role:          "", // Role kosong
-// 			VerifiedEmail: true,
-// 		}
-// 		_, err = collection.InsertOne(context.TODO(), newUser)
-// 		if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-// 			return
-// 		}
-
-// 		// Redirect ke frontend untuk pemilihan role
-// 		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email)
-// 		return
-// 	} else if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-// 		return
-// 	}
-
-// 	if user.Role == "" {
-// 		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email)
-// 		return
-// 	}
-
-// 	// Generate token dan set cookies
-// 	tokenString, err := generateToken(user.ID, user.Role)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-// 		return
-// 	}
-
-// 	// Tentukan URL untuk redirect
-// 	// redirectURL := "https://kosconnect.github.io/"
-// 	// if user.Role == "user" {
-// 	// 	redirectURL = "https://kosconnect.github.io/"
-// 	// } else if user.Role == "owner" {
-// 	// 	redirectURL = "https://kosconnect.github.io/dashboard-owner"
-// 	// } else if user.Role == "admin" {
-// 	// 	redirectURL = "https://kosconnect.github.io/dashboard-admin"
-// 	// }
-
-// 	// Set cookies dan token
-// 	c.SetCookie(
-// 		"authToken", // Nama cookie
-// 		tokenString, // Nilai cookie
-// 		3600*24*7,   // Durasi cookie (7 hari)
-// 		"/",         // Path
-// 		"",          // Domain
-// 		true,        // Secure (hanya untuk HTTPS)
-// 		true,        // HttpOnly (menghindari akses JS)
-// 	)
-
-// 	// Melakukan redirect setelah JSON response
-// // c.Redirect(http.StatusFound, redirectURL)
-
-	
-// c.JSON(http.StatusOK, gin.H{
-// 	"message":     "Login successful, redirecting...",
-// 	"token":       tokenString,
-// 	"role":        user.Role,
-// })
-// // "redirectURL": redirectURL, 
-// }
-
 func HandleGoogleCallback(c *gin.Context) {
 	state := c.Query("state")
 	if state != oauthStateString {
@@ -269,13 +161,13 @@ func HandleGoogleCallback(c *gin.Context) {
 	}
 
 	// Tukar "code" dengan token Google
-	token, err := googleOauthConfig.Exchange(c, code)
+	token, err := googleOauthConfig.Exchange(context.TODO(), code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
 		return
 	}
 
-	client := googleOauthConfig.Client(c, token)
+	client := googleOauthConfig.Client(context.TODO(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
@@ -292,16 +184,18 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
+	// Cek apakah user sudah ada di database
 	var user models.User
 	collection := config.DB.Collection("users")
 	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
 	if err == mongo.ErrNoDocuments {
+		// User belum ada, buat user baru
 		newUser := models.User{
 			ID:            primitive.NewObjectID(),
 			FullName:      userInfo.Name,
 			Email:         userInfo.Email,
-			Role:          "", // Role kosong
+			Role:          "", // Role kosong untuk sementara
 			VerifiedEmail: true,
 		}
 		_, err = collection.InsertOne(context.TODO(), newUser)
@@ -309,65 +203,34 @@ func HandleGoogleCallback(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 			return
 		}
+
 		// Redirect ke frontend untuk pemilihan role
-		c.JSON(http.StatusOK, gin.H{
-			"redirectURL": "https://kosconnect.github.io/auth?email=" + userInfo.Email,
-		})
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email)
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
-	// Generate token
+	if user.Role == "" {
+		// Jika user sudah ada tetapi belum memiliki role
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email)
+		return
+	}
+
+	// Generate token dan kirimkan ke frontend
 	tokenString, err := generateToken(user.ID, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	// Tentukan URL redirect
-	redirectURL := "https://kosconnect.github.io/"
-	if user.Role == "user" {
-		redirectURL = "https://kosconnect.github.io/"
-	} else if user.Role == "owner" {
-		redirectURL = "https://kosconnect.github.io/dashboard-owner"
-	} else if user.Role == "admin" {
-		redirectURL = "https://kosconnect.github.io/dashboard-admin"
-	}
-
-	// Kirim token, role, dan URL redirect ke frontend
 	c.JSON(http.StatusOK, gin.H{
-		"token":       tokenString,
-		"role":        user.Role,
-		"redirectURL": redirectURL,
+		"message": "Login successful",
+		"token":   tokenString,
+		"role":    user.Role,
 	})
 }
-
-func HandleSetTokenAndRedirect(c *gin.Context) {
-	token := c.Query("token")
-	redirectURL := c.Query("redirectURL")
-
-	if token == "" || redirectURL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing token or redirect URL"})
-		return
-	}
-
-	// Set cookie
-	c.SetCookie(
-		"authToken",
-		token,
-		3600*24*7, // 7 hari
-		"/",
-		"kosconnect.github.io", // Domain frontend
-		true,                   // Secure
-		true,                   // HttpOnly
-	)
-
-	// Redirect ke URL tujuan
-	c.Redirect(http.StatusFound, redirectURL)
-}
-
 
 func AssignRole(c *gin.Context) {
 	var payload struct {
