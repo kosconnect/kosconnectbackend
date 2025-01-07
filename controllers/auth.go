@@ -3,8 +3,10 @@ package controllers
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
+	// "fmt"
+	// "log"
 	"net/http"
+
 	// "os/user"
 
 	// "regexp"
@@ -161,76 +163,116 @@ func HandleGoogleLogin(c *gin.Context) {
 }
 
 func HandleGoogleCallback(c *gin.Context) {
-	code := c.Query("code")
-	if code == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
-		return
-	}
+    code := c.Query("code")
+    if code == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
+        return
+    }
 
-	// Get user data from Google
-	data, err := getUserDataFromGoogle(code)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user data"})
-		return
-	}
+    // Exchange the code for a token
+    token, err := googleOauthConfig.Exchange(context.Background(), code)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token: " + err.Error()})
+        return
+    }
 
-	// Check if user exists or create a new one
-	var user models.User
-	collection := config.DB.Collection("users")
-	err = collection.FindOne(context.TODO(), bson.M{"email": data.Email}).Decode(&user)
+    // Fetch user info from Google
+    client := googleOauthConfig.Client(context.Background(), token)
+    resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info: " + err.Error()})
+        return
+    }
+    defer resp.Body.Close()
 
-	if err == mongo.ErrNoDocuments {
-		// Create new user
-		newUser := models.User{
-			ID:            primitive.NewObjectID(),
-			FullName:      data.FullName,
-			Email:         data.Email,
-			Role:          "", // Role belum ditentukan
-			VerifiedEmail: true,
-		}
-		_, err = collection.InsertOne(context.TODO(), newUser)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-			return
-		}
+    var userInfo struct {
+        Email        string `json:"email"`
+        Name         string `json:"name"`
+        VerifiedEmail bool   `json:"verified_email"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info: " + err.Error()})
+        return
+    }
 
-		// Redirect to role assignment page
-		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+data.Email+"&id="+newUser.ID.Hex())
-		return
-	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
+    // Check if user exists in database
+    var user models.User
+    collection := config.DB.Collection("users")
+    err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
-	// If role is not assigned
-	if user.Role == "" {
-		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&id="+user.ID.Hex())
-		return
-	}
+    if err == mongo.ErrNoDocuments {
+        // Create new user
+        newUser := models.User{
+            ID:            primitive.NewObjectID(),
+            FullName:      userInfo.Name,
+            Email:         userInfo.Email,
+            Role:          "", // Role belum ditentukan
+            VerifiedEmail: userInfo.VerifiedEmail,
+        }
+        _, err = collection.InsertOne(context.TODO(), newUser)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+            return
+        }
 
-	// Redirect user based on role
-	c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.ID.Hex())
+        // Redirect to role assignment page
+        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email+"&id="+newUser.ID.Hex())
+        return
+    } else if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
+        return
+    }
+
+    // If role is not assigned
+    if user.Role == "" {
+        c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&id="+user.ID.Hex())
+        return
+    }
+
+    // Redirect user based on role
+    c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.ID.Hex())
 }
 
-func getUserDataFromGoogle(code string) (*models.User, error) {
-	token, err := googleOauthConfig.Exchange(context.Background(), code)
-	if err != nil {
-		return nil, fmt.Errorf("failed to exchange code: %s", err.Error())
-	}
 
-	response, err := http.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=" + token.AccessToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch user info: %s", err.Error())
-	}
-	defer response.Body.Close()
+// func getUserDataFromGoogle(code string) (*models.User, error) {
+//     // Exchange the code for a token
+//     token, err := googleOauthConfig.Exchange(context.Background(), code)
+//     if err != nil {
+//         log.Printf("Error exchanging code: %v", err)
+//         return nil, fmt.Errorf("failed to exchange code: %s", err.Error())
+//     }
+//     log.Printf("Token: %+v", token)
 
-	var userData models.User
-	if err := json.NewDecoder(response.Body).Decode(&userData); err != nil {
-		return nil, fmt.Errorf("failed to decode user info: %s", err.Error())
-	}
+//     // Fetch user info
+//     client := googleOauthConfig.Client(context.Background(), token)
+//     resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
+//     if err != nil {
+//         log.Printf("Error fetching user info: %v", err)
+//         return nil, fmt.Errorf("failed to fetch user info: %s", err.Error())
+//     }
+//     defer resp.Body.Close()
 
-	return &userData, nil
-}
+//     log.Printf("Response Status: %s", resp.Status)
+//     // Decode user info
+//     var userInfo struct {
+//         Email string `json:"email"`
+//         Name  string `json:"name"`
+//         Verified bool `json:"verified_email"`
+//     }
+//     if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+//         log.Printf("Error decoding user info: %v", err)
+//         return nil, fmt.Errorf("failed to decode user info: %s", err.Error())
+//     }
+//     log.Printf("User Info: %+v", userInfo)
+
+//     // Map user info
+//     user := &models.User{
+//         Email:         userInfo.Email,
+//         FullName:      userInfo.Name,
+//         VerifiedEmail: userInfo.Verified,
+//     }
+//     return user, nil
+// }
 
 func AssignRole(c *gin.Context) {
 	var payload struct {
