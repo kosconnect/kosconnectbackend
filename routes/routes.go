@@ -21,20 +21,19 @@ func AuthRoutes(router *gin.Engine) {
 }
 
 func UserRoutes(router *gin.Engine) {
-    api := router.Group("/api/users")
-    {
-        api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateUser)                        // Admin creates a user
-        api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllUsers)                       // Admin views all users
-        api.GET("/me", middlewares.JWTAuthMiddleware(), controllers.GetMyAccount)                   // Logged-in user views their own account
-        api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetUserByID)                   // Get user by ID
-        api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateUser)                    // Update user details
-        api.PUT("/:id/role", middlewares.JWTAuthMiddleware(), controllers.UpdateUserRole)           // Admin updates user role
-		api.PUT("/change-password", middlewares.JWTAuthMiddleware(), controllers.ChangePassword)    // Logged-in user changes their password
-        api.PUT("/:id/reset-password", middlewares.JWTAuthMiddleware(), controllers.ResetPassword)  // Admin resets user password
-        api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteUser)                 // Delete a user
-    }
+	api := router.Group("/api/users")
+	{
+		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateUser)                     // Admin creates a user
+		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllUsers)                     // Admin views all users
+		api.GET("/me", middlewares.JWTAuthMiddleware(), controllers.GetMyAccount)                  // Logged-in user views their own account
+		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetUserByID)                  // Get user by ID
+		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateUser)                   // Update user details
+		api.PUT("/:id/role", middlewares.JWTAuthMiddleware(), controllers.UpdateUserRole)          // Admin updates user role
+		api.PUT("/change-password", middlewares.JWTAuthMiddleware(), controllers.ChangePassword)   // Logged-in user changes their password
+		api.PUT("/:id/reset-password", middlewares.JWTAuthMiddleware(), controllers.ResetPassword) // Admin resets user password
+		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteUser)                // Delete a user
+	}
 }
-
 
 func CustomFacility(router *gin.Engine) {
 	api := router.Group("/api/customFacilities")
@@ -60,11 +59,15 @@ func CustomFacility(router *gin.Engine) {
 func CategoryRoutes(router *gin.Engine) {
 	api := router.Group("/api/categories")
 	{
-		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateCategory)
-		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllCategories)
-		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetCategoryByID)
-		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateCategory)
-		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteCategory)
+		api.GET("/", controllers.GetAllCategories)
+		api.GET("/:id", controllers.GetCategoryByID)
+
+		api.Use(middlewares.JWTAuthMiddleware())
+		{
+			api.POST("/", controllers.CreateCategory)
+			api.PUT("/:id", controllers.UpdateCategory)
+			api.DELETE("/:id", controllers.DeleteCategory)
+		}
 	}
 }
 
@@ -73,13 +76,13 @@ func BoardingHouse(router *gin.Engine) {
 	{
 		// Public route
 		api.GET("/", controllers.GetAllBoardingHouse)
+		api.GET("/:id", controllers.GetBoardingHouseByID)
 
 		// Protected routes - Requires JWT authentication
 		api.Use(middlewares.JWTAuthMiddleware())
 		{
 			api.POST("/", controllers.CreateBoardingHouse)
 			api.GET("/owner", controllers.GetBoardingHouseByOwnerID)
-			api.GET("/:id", controllers.GetBoardingHouseByID)
 			api.PUT("/:id", controllers.UpdateBoardingHouse)
 			api.DELETE("/:id", controllers.DeleteBoardingHouse)
 		}
@@ -111,6 +114,8 @@ func RoomFacility(router *gin.Engine) {
 func RoomRoutes(router *gin.Engine) {
 	// Group routes for room
 	api := router.Group("/rooms")
+	// Public endpoint to get room by ID
+	api.GET("/:id", controllers.GetRoomByID)
 
 	// Apply middleware for authorization (if needed)
 	api.Use(middlewares.JWTAuthMiddleware())
@@ -121,13 +126,9 @@ func RoomRoutes(router *gin.Engine) {
 		// Public endpoint to get rooms by Boarding House ID
 		api.GET("/boarding-house/:id", controllers.GetRoomByBoardingHouseID)
 
-		// Public endpoint to get room by ID
-		api.GET("/:id", controllers.GetRoomByID)
-
 		// Protected endpoints for owners/admin to manage rooms
-		api.POST("/", controllers.CreateRoom) // Create room
-		api.PUT("/:id", controllers.UpdateRoom) // Update room
+		api.POST("/", controllers.CreateRoom)      // Create room
+		api.PUT("/:id", controllers.UpdateRoom)    // Update room
 		api.DELETE("/:id", controllers.DeleteRoom) // Delete room
 	}
 }
-
