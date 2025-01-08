@@ -160,7 +160,18 @@ func generateStateOauthCookie() string {
 
 // HandleGoogleLogin redirects the user to the Google login page
 func HandleGoogleLogin(c *gin.Context) {
-	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
+	// Cek apakah pengguna sudah pernah login sebelumnya
+	// Misalnya, cek dari cookie atau session
+	_, err := c.Cookie("authToken")
+	if err != nil {
+		// Jika belum login, pakai select_account untuk pertama kali
+		url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
+		c.Redirect(http.StatusTemporaryRedirect, url)
+		return
+	}
+
+	// Jika sudah login sebelumnya, tidak perlu memilih akun lagi
+	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline)
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
@@ -218,7 +229,7 @@ func HandleGoogleCallback(c *gin.Context) {
 		}
 
 		// Redirect to role assignment page
-		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+userInfo.Email+"&id="+newUser.ID.Hex())
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+userInfo.Email+"&id="+newUser.ID.Hex())
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
@@ -227,7 +238,7 @@ func HandleGoogleCallback(c *gin.Context) {
 
 	// If role is not assigned
 	if user.Role == "" {
-		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&id="+user.ID.Hex())
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+user.Email+"&id="+user.ID.Hex())
 		return
 	}
 
