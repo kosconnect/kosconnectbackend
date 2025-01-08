@@ -11,6 +11,9 @@
         "src": "/(.*)",
         "dest": "main.go"
       }
+    ],
+    "rewrites": [
+      { "source": "/auth/assign-role", "destination": "/auth/assign-role.html" }
     ]
   }
   

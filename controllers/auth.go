@@ -235,46 +235,6 @@ func HandleGoogleCallback(c *gin.Context) {
 	c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.ID.Hex())
 }
 
-// func getUserDataFromGoogle(code string) (*models.User, error) {
-//     // Exchange the code for a token
-//     token, err := googleOauthConfig.Exchange(context.Background(), code)
-//     if err != nil {
-//         log.Printf("Error exchanging code: %v", err)
-//         return nil, fmt.Errorf("failed to exchange code: %s", err.Error())
-//     }
-//     log.Printf("Token: %+v", token)
-
-//     // Fetch user info
-//     client := googleOauthConfig.Client(context.Background(), token)
-//     resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
-//     if err != nil {
-//         log.Printf("Error fetching user info: %v", err)
-//         return nil, fmt.Errorf("failed to fetch user info: %s", err.Error())
-//     }
-//     defer resp.Body.Close()
-
-//     log.Printf("Response Status: %s", resp.Status)
-//     // Decode user info
-//     var userInfo struct {
-//         Email string `json:"email"`
-//         Name  string `json:"name"`
-//         Verified bool `json:"verified_email"`
-//     }
-//     if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-//         log.Printf("Error decoding user info: %v", err)
-//         return nil, fmt.Errorf("failed to decode user info: %s", err.Error())
-//     }
-//     log.Printf("User Info: %+v", userInfo)
-
-//     // Map user info
-//     user := &models.User{
-//         Email:         userInfo.Email,
-//         FullName:      userInfo.Name,
-//         VerifiedEmail: userInfo.Verified,
-//     }
-//     return user, nil
-// }
-
 func AssignRole(c *gin.Context) {
 	var payload struct {
 		Email string `json:"email"`
