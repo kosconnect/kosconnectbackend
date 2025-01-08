@@ -14,7 +14,7 @@ func AuthRoutes(router *gin.Engine) {
 
 		// Tambahkan routes untuk OAuth Google
 		authGroup.GET("/google/login", controllers.HandleGoogleLogin)
-		authGroup.Any("/callback", controllers.HandleGoogleCallback)
+		authGroup.GET("/callback", controllers.HandleGoogleCallback)
 		authGroup.PUT("/assign-role", controllers.AssignRole)
 		authGroup.POST("/googleauth", controllers.GoogleAuth)
 	}
@@ -32,9 +32,6 @@ func UserRoutes(router *gin.Engine) {
 		api.PUT("/change-password", middlewares.JWTAuthMiddleware(), controllers.ChangePassword)    // Logged-in user changes their password
         api.PUT("/:id/reset-password", middlewares.JWTAuthMiddleware(), controllers.ResetPassword)  // Admin resets user password
         api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteUser)                 // Delete a user
-		// Tambahkan route untuk SetUserRole dan CheckUserRole
-		// api.PUT("/role", middlewares.JWTAuthMiddleware(), controllers.SetUserRole) // Set user role (user/owner)
-		// api.GET("/role", middlewares.JWTAuthMiddleware(), controllers.CheckUserRole) // Check user role
     }
 }
 

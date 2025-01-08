@@ -160,107 +160,25 @@ func generateStateOauthCookie() string {
 
 // HandleGoogleLogin redirects the user to the Google login page
 func HandleGoogleLogin(c *gin.Context) {
-	// Cek apakah pengguna sudah pernah login sebelumnya
-	// Misalnya, cek dari cookie atau session
-	_, err := c.Cookie("authToken")
-	if err != nil {
-		// Jika belum login, pakai select_account untuk pertama kali
-		url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
-		c.Redirect(http.StatusTemporaryRedirect, url)
-		return
-	}
-
-	// Jika sudah login sebelumnya, tidak perlu memilih akun lagi
 	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline)
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
-// func HandleGoogleCallback(c *gin.Context) {
-// 	code := c.Query("code")
-// 	if code == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
-// 		return
-// 	}
-
-// 	// Exchange the code for a token
-// 	token, err := googleOauthConfig.Exchange(context.Background(), code)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token: " + err.Error()})
-// 		return
-// 	}
-
-// 	// Fetch user info from Google
-// 	client := googleOauthConfig.Client(context.Background(), token)
-// 	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info: " + err.Error()})
-// 		return
-// 	}
-// 	defer resp.Body.Close()
-
-// 	var userInfo struct {
-// 		Email         string `json:"email"`
-// 		Name          string `json:"name"`
-// 		VerifiedEmail bool   `json:"verified_email"`
-// 	}
-// 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info: " + err.Error()})
-// 		return
-// 	}
-
-// 	// Check if user exists in database
-// 	var user models.User
-// 	collection := config.DB.Collection("users")
-// 	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
-
-// 	if err == mongo.ErrNoDocuments {
-// 		// Create new user
-// 		newUser := models.User{
-// 			ID:            primitive.NewObjectID(),
-// 			FullName:      userInfo.Name,
-// 			Email:         userInfo.Email,
-// 			Role:          "", // Role belum ditentukan
-// 			VerifiedEmail: userInfo.VerifiedEmail,
-// 		}
-// 		_, err = collection.InsertOne(context.TODO(), newUser)
-// 		if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-// 			return
-// 		}
-
-// 		// Redirect to role assignment page
-// 		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+userInfo.Email+"&id="+newUser.ID.Hex())
-// 		return
-// 	} else if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
-// 		return
-// 	}
-
-// 	// If role is not assigned
-// 	if user.Role == "" {
-// 		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+user.Email+"&id="+user.ID.Hex())
-// 		return
-// 	}
-
-// 	// Redirect user based on role
-// 	c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.ID.Hex())
-// }
-
 func HandleGoogleCallback(c *gin.Context) {
-	code := c.DefaultQuery("code", "")
+	code := c.Query("code")
 	if code == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found"})
 		return
 	}
 
-	// Tukar code dengan token
+	// Exchange the code for a token
 	token, err := googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token: " + err.Error()})
 		return
 	}
 
-	// Ambil informasi pengguna dari Google
+	// Fetch user info from Google
 	client := googleOauthConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
@@ -279,33 +197,42 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Periksa apakah email sudah ada di database
+	// Check if user exists in database
 	var user models.User
 	collection := config.DB.Collection("users")
 	err = collection.FindOne(context.TODO(), bson.M{"email": userInfo.Email}).Decode(&user)
 
 	if err == mongo.ErrNoDocuments {
-		// Pengguna baru, arahkan untuk memilih role
-		// Redirect ke halaman pemilihan role
-		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+userInfo.Email)
+		// Create new user
+		newUser := models.User{
+			ID:            primitive.NewObjectID(),
+			FullName:      userInfo.Name,
+			Email:         userInfo.Email,
+			Role:          "", // Role belum ditentukan
+			VerifiedEmail: userInfo.VerifiedEmail,
+		}
+		_, err = collection.InsertOne(context.TODO(), newUser)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+			return
+		}
+
+		// Redirect to role assignment page
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+userInfo.Email+"&id="+newUser.ID.Hex())
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
 		return
 	}
 
-	// Pengguna sudah ada di database, set cookie dan token
-	tokenString, err := generateToken(user.ID, user.Role)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+	// If role is not assigned
+	if user.Role == "" {
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+user.Email+"&id="+user.ID.Hex())
 		return
 	}
 
-	// Set cookie (secure cookie untuk HTTPS)
-	c.SetCookie("authToken", tokenString, 3600*24*7, "/", "", true, true)
-
-	// Redirect ke halaman auth dengan token
-	c.Redirect(http.StatusFound, "https://kosconnect-server.vercel.app/auth?email="+user.Email+"&role="+user.Role)
+	// Redirect user based on role
+	c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.ID.Hex())
 }
 
 func AssignRole(c *gin.Context) {
