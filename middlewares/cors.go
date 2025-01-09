@@ -12,23 +12,12 @@ func CORSMiddleware() gin.HandlerFunc {
 		origin := c.Request.Header.Get("Origin")
 		allowedOrigins := []string{
 			"https://kosconnect.github.io",
-			"http://localhost:8080", // Testing dengan localhost
-			"https://accounts.google.com", // Google OAuth origin
-			"https://kosconnect-server.vercel.app", // backend cpexxx
-			"http://127.0.0.1:5501/", // local
+			"http://localhost:8080",               // Testing dengan localhost
+			"https://accounts.google.com",        // Google OAuth origin
+			"https://kosconnect-server.vercel.app", // Backend utama
 		}
 
 		allowed := false
-
-		// Pengecualian untuk Google OAuth endpoints
-		oauthEndpoints := []string{"/auth/google/login", "/auth/callback"}
-		for _, endpoint := range oauthEndpoints {
-			if c.Request.URL.Path == endpoint {
-				allowed = true
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				break
-			}
-		}
 
 		// Periksa apakah origin berada dalam daftar origin yang diizinkan
 		if !allowed {
@@ -41,12 +30,7 @@ func CORSMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		if !allowed {
-			// Jika origin tidak diizinkan, beri respons atau log (opsional)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Origin not allowed"})
-			return
-		}
-
+		// Tambahkan header CORS lainnya
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Writer.Header().Set("Access-Control-Expose-Headers", "Authorization")
