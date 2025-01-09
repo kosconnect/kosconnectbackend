@@ -92,7 +92,7 @@ func CreateBoardingHouse(c *gin.Context) {
 	fmt.Printf("Closest places: %+v\n", closestPlaces)
 
 	// Process images
-	var imageUrls []string
+	var boardinghouseImageURL []string
 	form, err := c.MultipartForm()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form-data"})
@@ -134,7 +134,7 @@ func CreateBoardingHouse(c *gin.Context) {
 			return
 		}
 
-		imageUrls = append(imageUrls, resp.GetContent().GetHTMLURL())
+		boardinghouseImageURL = append(boardinghouseImageURL, resp.GetContent().GetHTMLURL())
 	}
 
 	// Generate slug
@@ -158,7 +158,7 @@ func CreateBoardingHouse(c *gin.Context) {
 		Latitude:      latitude,
 		Description:   description,
 		Facilities:    facilities, // Sesuaikan input fasilitas
-		Images:        imageUrls,             // Sesuaikan input gambar
+		Images:        boardinghouseImageURL,             // Sesuaikan input gambar
 		Rules:         rules,
 		ClosestPlaces: closestPlaces,
 	}
@@ -356,7 +356,7 @@ func UpdateBoardingHouse(c *gin.Context) {
 	// Update images
 	form, err := c.MultipartForm()
 	if err == nil {
-		var imageUrls []string
+		var boardinghouseImageURL []string
 		files := form.File["images"]
 		for _, fileHeader := range files {
 			file, err := fileHeader.Open()
@@ -392,10 +392,10 @@ func UpdateBoardingHouse(c *gin.Context) {
 				return
 			}
 
-			imageUrls = append(imageUrls, resp.GetContent().GetHTMLURL())
+			boardinghouseImageURL = append(boardinghouseImageURL, resp.GetContent().GetHTMLURL())
 		}
-		if len(imageUrls) > 0 {
-			updateFields["images"] = imageUrls
+		if len(boardinghouseImageURL) > 0 {
+			updateFields["images"] = boardinghouseImageURL
 		}
 	}
 
