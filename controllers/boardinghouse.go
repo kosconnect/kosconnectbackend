@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -57,7 +57,7 @@ func CreateBoardingHouse(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or missing category_id"})
 		return
 	}
-		
+
 	// Parse facilities
 	facilitiesJSON := c.PostForm("facilities")
 	var facilities []models.Facilities
@@ -134,7 +134,11 @@ func CreateBoardingHouse(c *gin.Context) {
 			return
 		}
 
-		boardinghouseImageURL = append(boardinghouseImageURL, resp.GetContent().GetHTMLURL())
+		// Ganti URL GitHub dengan raw.githubusercontent.com dan perbaiki path (hilangkan 'blob')
+		imageURL := strings.Replace(resp.GetContent().GetHTMLURL(), "github.com", "raw.githubusercontent.com", 1)
+		imageURL = strings.Replace(imageURL, "/blob/", "/", 1)
+
+		boardinghouseImageURL = append(boardinghouseImageURL, imageURL)
 	}
 
 	// Generate slug
@@ -157,8 +161,8 @@ func CreateBoardingHouse(c *gin.Context) {
 		Longitude:     longitude,
 		Latitude:      latitude,
 		Description:   description,
-		Facilities:    facilities, // Sesuaikan input fasilitas
-		Images:        boardinghouseImageURL,             // Sesuaikan input gambar
+		Facilities:    facilities,            // Sesuaikan input fasilitas
+		Images:        boardinghouseImageURL, // Sesuaikan input gambar
 		Rules:         rules,
 		ClosestPlaces: closestPlaces,
 	}
@@ -392,10 +396,18 @@ func UpdateBoardingHouse(c *gin.Context) {
 				return
 			}
 
-			boardinghouseImageURL = append(boardinghouseImageURL, resp.GetContent().GetHTMLURL())
+			// Ganti URL GitHub dengan raw.githubusercontent.com
+			imageURL := strings.Replace(resp.GetContent().GetHTMLURL(), "github.com", "raw.githubusercontent.com", 1)
+			imageURL = strings.Replace(imageURL, "/blob", "", 1)
+
+			boardinghouseImageURL = append(boardinghouseImageURL, imageURL)
 		}
+
+		// Tambahkan gambar baru jika ada
 		if len(boardinghouseImageURL) > 0 {
-			updateFields["images"] = boardinghouseImageURL
+			existingImages, _ := updateFields["images"].([]string)
+			updatedImages := append(existingImages, boardinghouseImageURL...)
+			updateFields["images"] = updatedImages
 		}
 	}
 
@@ -436,7 +448,6 @@ func UpdateBoardingHouse(c *gin.Context) {
 		"data":    updatedBoardingHouse,
 	})
 }
-
 
 // DELETE OLEH OWNER
 func DeleteBoardingHouse(c *gin.Context) {

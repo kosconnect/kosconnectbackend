@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -124,7 +125,11 @@ func CreateRoom(c *gin.Context) {
 				return
 			}
 
-			roomImageURL = append(roomImageURL, resp.GetContent().GetHTMLURL())
+			// Ganti URL GitHub dengan raw.githubusercontent.com dan perbaiki path (hilangkan 'blob')
+			imageURL := strings.Replace(resp.GetContent().GetHTMLURL(), "github.com", "raw.githubusercontent.com", 1)
+			imageURL = strings.Replace(imageURL, "/blob/", "/", 1)
+
+			roomImageURL = append(roomImageURL, imageURL)
 		}
 	}
 
@@ -374,14 +379,12 @@ func UpdateRoom(c *gin.Context) {
 		priceYearly, _ = strconv.Atoi(priceYearlyStr)
 	}
 
-	// Parsing number_available
 	numberAvailableStr := c.PostForm("number_available")
 	numberAvailable := 0
 	if numberAvailableStr != "" {
 		numberAvailable, _ = strconv.Atoi(numberAvailableStr)
 	}
 
-	// Parse Room Facilities
 	var roomFacilities []models.RoomFacilities
 	roomFacilitiesJSON := c.PostForm("room_facilities")
 	if err := json.Unmarshal([]byte(roomFacilitiesJSON), &roomFacilities); err != nil {
@@ -389,7 +392,6 @@ func UpdateRoom(c *gin.Context) {
 		return
 	}
 
-	// Parse Custom Facilities
 	var customFacilities []models.CustomFacilities
 	customFacilitiesJSON := c.PostForm("custom_facilities")
 	if err := json.Unmarshal([]byte(customFacilitiesJSON), &customFacilities); err != nil {
@@ -397,10 +399,23 @@ func UpdateRoom(c *gin.Context) {
 		return
 	}
 
-	// Process images
-	var roomImageURL []string
 	form, err := c.MultipartForm()
+	updateFields := bson.M{
+		"room_type":         roomType,
+		"size":              size,
+		"price.monthly":     priceMonthly,
+		"price.quarterly":   priceQuarterly,
+		"price.semi_annual": priceSemiAnnual,
+		"price.yearly":      priceYearly,
+		"room_facilities":   roomFacilities,
+		"custom_facilities": customFacilities,
+		"status":            c.PostForm("status"),
+		"number_available":  numberAvailable,
+	}
+
+	// Update images
 	if err == nil {
+		var roomImageURL []string
 		files := form.File["images"]
 		for _, fileHeader := range files {
 			file, err := fileHeader.Open()
@@ -436,29 +451,18 @@ func UpdateRoom(c *gin.Context) {
 				return
 			}
 
-			roomImageURL = append(roomImageURL, resp.GetContent().GetHTMLURL())
-		}
-	}
+			imageURL := strings.Replace(resp.GetContent().GetHTMLURL(), "github.com", "raw.githubusercontent.com", 1)
+			imageURL = strings.Replace(imageURL, "/blob/", "/", 1)
 
-	// Prepare update data
-	update := bson.M{
-		"$set": bson.M{
-			"room_type":         roomType,
-			"size":              size,
-			"price.monthly":     priceMonthly,
-			"price.quarterly":   priceQuarterly,
-			"price.semi_annual": priceSemiAnnual,
-			"price.yearly":      priceYearly,
-			"room_facilities":   roomFacilities,
-			"custom_facilities": customFacilities,
-			"status":            c.PostForm("status"),
-			"number_available":  numberAvailable,
-			"images":            roomImageURL,
-		},
+			roomImageURL = append(roomImageURL, imageURL)
+		}
+
+		// Ganti gambar lama dengan gambar baru
+		updateFields["images"] = roomImageURL
 	}
 
 	collection := config.DB.Collection("rooms")
-	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": roomID}, update)
+	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": roomID}, bson.M{"$set": updateFields})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update room in database"})
 		return
@@ -469,18 +473,7 @@ func UpdateRoom(c *gin.Context) {
 		return
 	}
 
-	// Format response prices to rupiah
-	formattedPrices := map[string]string{
-		"monthly":     formatrupiah(float64(priceMonthly)),
-		"quarterly":   formatrupiah(float64(priceQuarterly)),
-		"semi_annual": formatrupiah(float64(priceSemiAnnual)),
-		"yearly":      formatrupiah(float64(priceYearly)),
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message":          "Room updated successfully",
-		"prices_formatted": formattedPrices,
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "Room updated successfully"})
 }
 
 // DeleteRoom deletes an existing room by ID
