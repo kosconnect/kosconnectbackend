@@ -67,9 +67,6 @@ func CreateRoom(c *gin.Context) {
 		priceYearly, _ = strconv.Atoi(priceYearlyStr)
 	}
 
-	status := c.PostForm("status")
-	numberAvailable, _ := strconv.Atoi(c.PostForm("number_available"))
-
 	// Parse Room Facilities
 	var roomFacilities []models.RoomFacilities
 	roomFacilitiesJSON := c.PostForm("room_facilities")
@@ -132,6 +129,17 @@ func CreateRoom(c *gin.Context) {
 			roomImageURL = append(roomImageURL, imageURL)
 		}
 	}
+	// Ambil nilai dari form (atau set default jika kosong)
+	numberAvailableStr := c.PostForm("number_available")
+	numberAvailable := 0
+	if numberAvailableStr != "" {
+		numberAvailable, _ = strconv.Atoi(numberAvailableStr)
+	}
+
+	status := "Tidak Tersedia"
+	if numberAvailable >= 1 {
+		status = "Tersedia"
+	}
 
 	// Create room model
 	room := models.Room{
@@ -147,8 +155,8 @@ func CreateRoom(c *gin.Context) {
 		},
 		RoomFacilities:   roomFacilities,
 		CustomFacilities: customFacilities,
-		Status:           status,
 		NumberAvailable:  numberAvailable,
+		Status:           status,
 		Images:           roomImageURL,
 	}
 
@@ -337,6 +345,76 @@ func GetRoomDetailByID(c *gin.Context) {
 	c.JSON(http.StatusOK, roomDetails)
 }
 
+func GetRoomsForLandingPage(c *gin.Context) {
+	roomCollection := config.DB.Collection("rooms")
+
+	pipeline := mongo.Pipeline{
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "boardinghouses"},          // Join dengan koleksi BoardingHouse
+				{Key: "localField", Value: "boarding_house_id"}, // Field referensi dari koleksi Room
+				{Key: "foreignField", Value: "_id"},             // Field referensi di BoardingHouse
+				{Key: "as", Value: "boarding_house"},            // Hasil join disimpan di boarding_house
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$boarding_house"}, // Unwind array ke objek
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "categories"},                       // Join dengan koleksi Categories
+				{Key: "localField", Value: "boarding_house.category_id"}, // Referensi kategori
+				{Key: "foreignField", Value: "_id"},
+				{Key: "as", Value: "category"},
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$category"}, // Unwind array ke objek
+			}},
+		},
+		{
+			{Key: "$project", Value: bson.D{
+				{Key: "room_name", Value: "$room_type"},                     // Nama kamar
+				{Key: "boarding_house_name", Value: "$boarding_house.name"}, // Nama kos
+				{Key: "address", Value: "$boarding_house.address"},          // Alamat kos
+				{Key: "price", Value: "$price.monthly"},                     // Harga bulanan
+				{Key: "status", Value: bson.D{ // Hitung Status
+					{Key: "status", Value: bson.D{
+						{Key: "$cond", Value: bson.A{
+							bson.D{{Key: "$gt", Value: bson.A{"$number_available", 0}}},
+							bson.D{{Key: "$concat", Value: bson.A{
+								bson.D{{Key: "$toString", Value: "$number_available"}},
+								" Kamar Tersedia",
+							}}},
+							"Tidak Tersedia",
+						}},
+					}},
+				}},
+				{Key: "images", Value: bson.D{
+					{Key: "$slice", Value: bson.A{"$images", 1}}, // Gambar pertama
+				}},
+			}},
+		},
+	}
+
+	cursor, err := roomCollection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data"})
+		return
+	}
+
+	var results []bson.M
+	if err := cursor.All(context.TODO(), &results); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, results)
+}
+
 func UpdateRoom(c *gin.Context) {
 	roomID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -460,7 +538,13 @@ func UpdateRoom(c *gin.Context) {
 		// Ganti gambar lama dengan gambar baru
 		updateFields["images"] = roomImageURL
 	}
-
+    
+    status := "Tidak Tersedia"
+    if numberAvailable >= 1 {
+        status = "Tersedia"
+    }
+    updateFields["status"] = status
+    
 	collection := config.DB.Collection("rooms")
 	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": roomID}, bson.M{"$set": updateFields})
 	if err != nil {

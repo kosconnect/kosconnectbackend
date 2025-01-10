@@ -113,16 +113,18 @@ func RoomFacility(router *gin.Engine) {
 
 func RoomRoutes(router *gin.Engine) {
 	// Group routes for room
-	api := router.Group("/rooms")
+	api := router.Group("/api/rooms")
 	// Public endpoint to get room by ID
-	api.GET("/:id", controllers.GetRoomByID)
+
+	api.GET("/:id/detail", controllers.GetRoomDetailByID)
+	api.GET("/home", controllers.GetRoomsForLandingPage)
+	// Public endpoint to get all rooms
+	api.GET("/", controllers.GetAllRoom)
 
 	// Apply middleware for authorization (if needed)
 	api.Use(middlewares.JWTAuthMiddleware())
 	{
-		// Public endpoint to get all rooms
-		api.GET("/", controllers.GetAllRoom)
-
+		api.GET("/:id", controllers.GetRoomByID)
 		// Public endpoint to get rooms by Boarding House ID
 		api.GET("/boarding-house/:id", controllers.GetRoomByBoardingHouseID)
 
