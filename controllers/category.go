@@ -22,7 +22,7 @@ func CreateCategory(c *gin.Context) {
 
 	// Generate slug from name
 	category.Slug = slug.Make(category.Name)
-	category.ID = primitive.NewObjectID()
+	category.CategoryID = primitive.NewObjectID()
 
 	collection := config.DB.Collection("categories")
 	_, err := collection.InsertOne(context.TODO(), category)

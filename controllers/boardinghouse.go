@@ -152,7 +152,7 @@ func CreateBoardingHouse(c *gin.Context) {
 
 	// Create boarding house model
 	boardingHouse := models.BoardingHouse{
-		ID:            primitive.NewObjectID(),
+		BoardingHouseID:            primitive.NewObjectID(),
 		OwnerID:       ownerObjectID,
 		CategoryID:    categoryID,
 		Name:          c.PostForm("name"),

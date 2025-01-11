@@ -52,7 +52,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 	user.Password = string(hashedPassword)
-	user.ID = primitive.NewObjectID()
+	user.UserID = primitive.NewObjectID()
 
 	// Insert to MongoDB
 	collection := config.DB.Collection("users")

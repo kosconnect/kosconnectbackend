@@ -143,7 +143,7 @@ func CreateRoom(c *gin.Context) {
 
 	// Create room model
 	room := models.Room{
-		ID:              primitive.NewObjectID(),
+		RoomID:              primitive.NewObjectID(),
 		BoardingHouseID: boardingHouseID,
 		RoomType:        roomType,
 		Size:            size,

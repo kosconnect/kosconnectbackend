@@ -20,7 +20,7 @@ func CreateFacilityType(c *gin.Context) {
 	}
 
 	collection := config.DB.Collection("facilitytypes")
-	facilityType.ID = primitive.NewObjectID()
+	facilityType.FacilityTypeID = primitive.NewObjectID()
 
 	_, err := collection.InsertOne(context.TODO(), facilityType)
 	if err != nil {

@@ -36,7 +36,7 @@ func CreateCustomFacility(c *gin.Context) {
     }
 
     // Generate ObjectID untuk facility
-    facility.ID = primitive.NewObjectID().Hex()
+    facility.CustomFacilityID = primitive.NewObjectID().Hex()
     facility.OwnerID = ownerID
 
     // Simpan ke koleksi MongoDB
@@ -54,7 +54,7 @@ func CreateCustomFacility(c *gin.Context) {
     c.JSON(http.StatusCreated, gin.H{
         "message": "Custom facility created successfully",
         "data": gin.H{
-            "id":          facility.ID,
+            "id":          facility.CustomFacilityID,
             "owner_id":    facility.OwnerID,
             "name":        facility.Name,
             "price":       formattedPrice, // Harga dalam format Indonesia

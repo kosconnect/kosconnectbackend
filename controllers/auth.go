@@ -126,7 +126,7 @@ func Register(c *gin.Context) {
 	}
 
 	// Set user ID dan waktu
-	user.ID = primitive.NewObjectID()
+	user.UserID = primitive.NewObjectID()
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
@@ -205,7 +205,7 @@ func HandleGoogleCallback(c *gin.Context) {
 	if err == mongo.ErrNoDocuments {
 		// Create new user
 		newUser := models.User{
-			ID:            primitive.NewObjectID(),
+			UserID:            primitive.NewObjectID(),
 			FullName:      userInfo.Name,
 			Email:         userInfo.Email,
 			Role:          "", // Role belum ditentukan
@@ -218,7 +218,7 @@ func HandleGoogleCallback(c *gin.Context) {
 		}
 
 		// Redirect to role assignment page
-		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+userInfo.Email+"&id="+newUser.ID.Hex())
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+userInfo.Email+"&id="+newUser.UserID.Hex())
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
@@ -227,12 +227,12 @@ func HandleGoogleCallback(c *gin.Context) {
 
 	// If role is not assigned
 	if user.Role == "" {
-		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+user.Email+"&id="+user.ID.Hex())
+		c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth-assign-role?email="+user.Email+"&id="+user.UserID.Hex())
 		return
 	}
 
 	// Redirect user based on role
-	c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.ID.Hex())
+	c.Redirect(http.StatusFound, "https://kosconnect.github.io/auth?email="+user.Email+"&role="+user.Role+"&id="+user.UserID.Hex())
 }
 
 func AssignRole(c *gin.Context) {
@@ -290,7 +290,7 @@ func GoogleAuth(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := generateToken(user.ID, user.Role)
+	token, err := generateToken(user.UserID, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -336,7 +336,7 @@ func Login(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := generateToken(user.ID, user.Role)
+	token, err := generateToken(user.UserID, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return

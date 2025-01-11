@@ -20,7 +20,7 @@ func CreateRoomFacility(c *gin.Context) {
 	}
 
 	collection := config.DB.Collection("roomfacilities")
-	roomFacility.ID = primitive.NewObjectID()
+	roomFacility.RoomFacilityID = primitive.NewObjectID()
 
 	_, err := collection.InsertOne(context.TODO(), roomFacility)
 	if err != nil {

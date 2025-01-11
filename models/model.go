@@ -7,7 +7,7 @@ import (
 )
 
 type User struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	UserID         primitive.ObjectID `bson:"_id,omitempty" json:"user_id,omitempty"`
 	FullName      string             `bson:"fullname,omitempty" json:"fullname,omitempty"`
 	Email         string             `bson:"email,omitempty" json:"email,omitempty"`
 	PhoneNumber   string             `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"`
@@ -17,35 +17,35 @@ type User struct {
 	VerifiedEmail bool               `bson:"verified_email,omitempty" json:"verified_email,omitempty"` // Status verifikasi email
 	CreatedAt     time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`         // Waktu pembuatan
 	UpdatedAt     time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`         // Waktu pembaruan
-    IsRoleAssigned bool               `bson:"is_role_assigned" json:"is_role_assigned"`
+	IsRoleAssigned bool              `bson:"is_role_assigned" json:"is_role_assigned"`
 }
 
 type Category struct {
-	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string             `bson:"name,omitempty" json:"name,omitempty"`
-	Slug string             `bson:"slug,omitempty" json:"slug,omitempty"`
+	CategoryID primitive.ObjectID `bson:"_id,omitempty" json:"category_id,omitempty"`
+	Name       string             `bson:"name,omitempty" json:"name,omitempty"`
+	Slug       string             `bson:"slug,omitempty" json:"slug,omitempty"`
 }
 
 type FacilityType struct {
-	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string             `bson:"name,omitempty" json:"name,omitempty"`
+	FacilityTypeID primitive.ObjectID `bson:"_id,omitempty" json:"facility_type_id,omitempty"`
+	Name          string             `bson:"name,omitempty" json:"name,omitempty"`
 }
 
 // BoardingHouse model
 type BoardingHouse struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	OwnerID       primitive.ObjectID `bson:"owner_id,omitempty" json:"owner_id,omitempty"`
-	CategoryID    primitive.ObjectID `bson:"category_id,omitempty" json:"category_id,omitempty"`
-	Name          string             `bson:"name,omitempty" json:"name,omitempty"`
-	Slug          string             `bson:"slug,omitempty" json:"slug,omitempty"`
-	Address       string             `bson:"address,omitempty" json:"address,omitempty"`
-	Longitude     float64            `bson:"longitude,omitempty" json:"longitude,omitempty"`
-	Latitude      float64            `bson:"latitude,omitempty" json:"latitude,omitempty"`
-	Description   string             `bson:"description,omitempty" json:"description,omitempty"`
-	Facilities    []Facilities       `bson:"facilities,omitempty" json:"facilities,omitempty"`
-	Images        []string           `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
-	Rules         string             `bson:"rules,omitempty" json:"rules,omitempty"`
-	ClosestPlaces []ClosestPlace     `bson:"closest_places,omitempty" json:"closest_places,omitempty"`
+	BoardingHouseID primitive.ObjectID `bson:"_id,omitempty" json:"boarding_house_id,omitempty"`
+	OwnerID         primitive.ObjectID `bson:"owner_id,omitempty" json:"owner_id,omitempty"`
+	CategoryID      primitive.ObjectID `bson:"category_id,omitempty" json:"category_id,omitempty"`
+	Name            string             `bson:"name,omitempty" json:"name,omitempty"`
+	Slug            string             `bson:"slug,omitempty" json:"slug,omitempty"`
+	Address         string             `bson:"address,omitempty" json:"address,omitempty"`
+	Longitude       float64            `bson:"longitude,omitempty" json:"longitude,omitempty"`
+	Latitude        float64            `bson:"latitude,omitempty" json:"latitude,omitempty"`
+	Description     string             `bson:"description,omitempty" json:"description,omitempty"`
+	Facilities      []Facilities       `bson:"facilities,omitempty" json:"facilities,omitempty"`
+	Images          []string           `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
+	Rules           string             `bson:"rules,omitempty" json:"rules,omitempty"`
+	ClosestPlaces   []ClosestPlace     `bson:"closest_places,omitempty" json:"closest_places,omitempty"`
 }
 
 // untuk simpan data facility umum di boarding house
@@ -63,21 +63,21 @@ type ClosestPlace struct {
 
 // RoomFacility model ini merupakan collection
 type RoomFacility struct {
-	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string             `bson:"name,omitempty" json:"name,omitempty"`
+	RoomFacilityID primitive.ObjectID `bson:"_id,omitempty" json:"room_facility_id,omitempty"`
+	Name           string             `bson:"name,omitempty" json:"name,omitempty"`
 }
 
 // room custom facility
 type CustomFacility struct {
-	ID      string             `json:"id,omitempty" bson:"_id,omitempty"`
-	Name    string             `json:"name,omitempty" bson:"name,omitempty"`
-	Price   float64            `json:"price,omitempty" bson:"price,omitempty"`
-	OwnerID primitive.ObjectID `json:"owner_id,omitempty" bson:"owner_id,omitempty"`
+	CustomFacilityID string             `json:"custom_facility_id,omitempty" bson:"_id,omitempty"`
+	Name             string             `json:"name,omitempty" bson:"name,omitempty"`
+	Price            float64            `json:"price,omitempty" bson:"price,omitempty"`
+	OwnerID          primitive.ObjectID `json:"owner_id,omitempty" bson:"owner_id,omitempty"`
 }
 
 // Room model
 type Room struct {
-	ID               primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	RoomID           primitive.ObjectID `bson:"_id,omitempty" json:"room_id,omitempty"`
 	BoardingHouseID  primitive.ObjectID `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
 	RoomType         string             `bson:"room_type,omitempty" json:"room_type,omitempty"`
 	Size             string             `bson:"size,omitempty" json:"size,omitempty"`
@@ -99,20 +99,20 @@ type RoomPrice struct {
 
 // tempat simpan roomfacility dari tiap ruangan
 type RoomFacilities struct {
-	RoomFacilityID primitive.ObjectID `bson:"roomfacility_id,omitempty" json:"roomfacility_id,omitempty"`
+	RoomFacilityID primitive.ObjectID `bson:"roomfacility_id,omitempty" json:"room_facility_id,omitempty"`
 	Name           string             `bson:"name,omitempty" json:"name,omitempty"`
 }
 
 // tempat simpan custom facility yang ada di tiap kamar/ruangan/room
 type CustomFacilities struct {
-	CustomFacilitiesID primitive.ObjectID `bson:"customfacility_id,omitempty" json:"customfacility_id,omitempty"`
+	CustomFacilitiesID primitive.ObjectID `bson:"customfacility_id,omitempty" json:"custom_facilities_id,omitempty"`
 	Name               string             `json:"name,omitempty" bson:"name,omitempty"`
 	Price              float64            `json:"price,omitempty" bson:"price,omitempty"`
 }
 
 // /////////////
 type Order struct {
-	ID                    primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	OrderID               primitive.ObjectID `bson:"_id,omitempty" json:"order_id,omitempty"`
 	UserID                primitive.ObjectID `bson:"user_id,omitempty" json:"user_id,omitempty"`
 	BoardingHouseID       primitive.ObjectID `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
 	RoomID                primitive.ObjectID `bson:"room_id,omitempty" json:"room_id,omitempty"`
