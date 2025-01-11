@@ -404,27 +404,46 @@ func UpdateUserRole(c *gin.Context) {
     c.JSON(http.StatusOK, gin.H{"message": "Role updated successfully"})
 }
 
-// Delete user (for the logged-in user or admin)
+// DeleteUser deletes a user (self or by admin)
 func DeleteUser(c *gin.Context) {
-	userID, err := getUserIDFromToken(c)
+	// Get the logged-in user's ID from the token
+	loggedInUserID, err := getUserIDFromToken(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	// Check if the logged-in user is deleting their own account or an admin is deleting any user
-	if userID.Hex() != c.Param("id") {
-		claims, _ := c.Get("user")
-		role := claims.(jwt.MapClaims)["role"].(string)
-		if role != "admin" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You can only delete your own account"})
-			return
-		}
+	// Get the target user ID from the request parameters
+	targetUserID := c.Param("id")
+	targetUserObjectID, err := primitive.ObjectIDFromHex(targetUserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
 	}
 
-	// Delete user from MongoDB
+	// Extract claims to get the role of the logged-in user
+	claims, _ := c.Get("user")
+	role := claims.(jwt.MapClaims)["role"].(string)
+
+	// Check permissions
+	if role != "admin" && loggedInUserID != targetUserObjectID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can delete other users"})
+		return
+	}
+
+	// Access the users collection
 	collection := config.DB.Collection("users")
-	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": userID})
+
+	// Find the user to ensure they exist
+	var user models.User
+	err = collection.FindOne(context.TODO(), bson.M{"_id": targetUserObjectID}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Perform the deletion
+	_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": targetUserObjectID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
 		return

@@ -36,8 +36,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	routes.CustomFacility(router)
 	routes.CategoryRoutes(router)
 	routes.BoardingHouse(router)
-	routes.FacilityType(router)
-	routes.RoomFacility(router)
+	routes.Facility(router)
 	routes.RoomRoutes(router)
 
 	// Handle HTTP request
