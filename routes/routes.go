@@ -27,10 +27,11 @@ func UserRoutes(router *gin.Engine) {
 		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllUsers)                     // Admin views all users
 		api.GET("/me", middlewares.JWTAuthMiddleware(), controllers.GetMyAccount)                  // Logged-in user views their own account
 		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetUserByID)                  // Get user by ID
-		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateUser)                   // Update user details
+		api.PUT("/me", middlewares.JWTAuthMiddleware(), controllers.UpdateMe)                   // Update user details for user yg login
+		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateUser)                   // Update user details oleh admin
 		api.PUT("/:id/role", middlewares.JWTAuthMiddleware(), controllers.UpdateUserRole)          // Admin updates user role
-		api.PUT("/change-password", middlewares.JWTAuthMiddleware(), controllers.ChangePassword)   // Logged-in user changes their password
-		api.PUT("/:id/reset-password", middlewares.JWTAuthMiddleware(), controllers.ResetPassword) // Admin resets user password
+		api.PUT("/change-password", middlewares.JWTAuthMiddleware(), controllers.ChangePassword)   // berdasarkan pengguna yang login
+		api.PUT("/:id/reset-password", middlewares.JWTAuthMiddleware(), controllers.ResetPassword) // Admin bisa reset password pengguna lain
 		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteUser)                // Delete a user
 	}
 }

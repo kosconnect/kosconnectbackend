@@ -136,7 +136,7 @@ func GetUserByID(c *gin.Context) {
 }
 
 // Update user (for the logged-in user or admin)
-func UpdateUser(c *gin.Context) {
+func UpdateMe(c *gin.Context) {
 	userID, err := getUserIDFromToken(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -165,6 +165,62 @@ func UpdateUser(c *gin.Context) {
 		context.TODO(),
 		bson.M{"_id": userID},
 		bson.M{"$set": updatedUser},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
+}
+
+func UpdateUser(c *gin.Context) {
+	// Mendapatkan user ID dari token
+	loggedInUserID, err := getUserIDFromToken(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Mendapatkan role dari token JWT
+	claims, _ := c.Get("user")
+	role := claims.(jwt.MapClaims)["role"].(string)
+
+	// Mendapatkan user ID yang ingin diubah dari parameter URL
+	targetUserID := c.Param("id")
+	targetUserObjectID, err := primitive.ObjectIDFromHex(targetUserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+
+	// Logika kontrol akses
+	if role != "admin" && loggedInUserID.Hex() != targetUserID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You are not authorized to update this user"})
+		return
+	}
+
+	// Parsing data input yang akan diupdate
+	var updatedUserData models.User
+	if err := c.ShouldBindJSON(&updatedUserData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	// Mencegah admin tidak sengaja mengubah field sensitif tertentu (misalnya password atau role)
+	updateFields := bson.M{
+		"fullname":    updatedUserData.FullName,
+		"email":       updatedUserData.Email,
+		"phonenumber": updatedUserData.PhoneNumber,
+		"picture":     updatedUserData.Picture,
+	}
+
+	// Update user di MongoDB
+	collection := config.DB.Collection("users")
+	_, err = collection.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": targetUserObjectID},
+		bson.M{"$set": updateFields},
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
