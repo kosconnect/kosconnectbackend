@@ -40,11 +40,6 @@ type BoardingHouse struct {
 	Facilities      []primitive.ObjectID `bson:"facilities_id,omitempty" json:"facilities_id,omitempty"`
 	Images          []string             `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
 	Rules           string               `bson:"rules,omitempty" json:"rules,omitempty"`
-
-	// These fields are for response purposes
-	CategoryName    string   `bson:"category_name,omitempty"`
-	OwnerName       string   `bson:"owner_name,omitempty"`
-	FacilityNames   []string `bson:"facility_names,omitempty"`
 }
 
 // untuk simpan data facility umum di boarding house
@@ -64,16 +59,16 @@ type CustomFacility struct {
 
 // Room model
 type Room struct {
-	RoomID           primitive.ObjectID `bson:"_id,omitempty" json:"room_id,omitempty"`
-	BoardingHouseID  primitive.ObjectID `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
-	RoomType         string             `bson:"room_type,omitempty" json:"room_type,omitempty"`
-	Size             string             `bson:"size,omitempty" json:"size,omitempty"`
-	Price            RoomPrice          `bson:"price,omitempty" json:"price,omitempty"`
-	RoomFacilities   [] primitive.ObjectID   `bson:"room_facilities,omitempty" json:"room_facilities,omitempty"`
-	CustomFacilities [] primitive.ObjectID `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
-	Status           string             `bson:"status,omitempty" json:"status,omitempty"`
-	NumberAvailable  int                `bson:"number_available,omitempty" json:"number_available,omitempty"`
-	Images           []string           `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
+	RoomID           primitive.ObjectID   `bson:"_id,omitempty" json:"room_id,omitempty"`
+	BoardingHouseID  primitive.ObjectID   `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
+	RoomType         string               `bson:"room_type,omitempty" json:"room_type,omitempty"`
+	Size             string               `bson:"size,omitempty" json:"size,omitempty"`
+	Price            RoomPrice            `bson:"price,omitempty" json:"price,omitempty"`
+	RoomFacilities   []primitive.ObjectID `bson:"room_facilities,omitempty" json:"room_facilities,omitempty"`
+	CustomFacilities []primitive.ObjectID `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
+	Status           string               `bson:"status,omitempty" json:"status,omitempty"`
+	NumberAvailable  int                  `bson:"number_available,omitempty" json:"number_available,omitempty"`
+	Images           []string             `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
 }
 
 // RoomPrice struct
@@ -86,25 +81,25 @@ type RoomPrice struct {
 
 // /////////////
 type Order struct {
-	OrderID               primitive.ObjectID `bson:"_id,omitempty" json:"order_id,omitempty"`
-	UserID                primitive.ObjectID `bson:"user_id,omitempty" json:"user_id,omitempty"`
-	BoardingHouseID       primitive.ObjectID `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
-	RoomID                primitive.ObjectID `bson:"room_id,omitempty" json:"room_id,omitempty"`
-	RoomType              string             `bson:"room_type,omitempty" json:"room_type,omitempty"`
+	OrderID               primitive.ObjectID   `bson:"_id,omitempty" json:"order_id,omitempty"`
+	UserID                primitive.ObjectID   `bson:"user_id,omitempty" json:"user_id,omitempty"`
+	BoardingHouseID       primitive.ObjectID   `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
+	RoomID                primitive.ObjectID   `bson:"room_id,omitempty" json:"room_id,omitempty"`
+	RoomType              string               `bson:"room_type,omitempty" json:"room_type,omitempty"`
 	CustomFacilities      []primitive.ObjectID `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
-	Name                  string             `json:"name,omitempty" bson:"name,omitempty"`
-	Email                 string             `bson:"email,omitempty" json:"email,omitempty"`
-	PhoneNumber           string             `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"` // Nomor WhatsApp pemesan
-	CheckInDate           string             `bson:"check_in_date,omitempty" json:"check_in_date,omitempty"`
-	Duration              string             `bson:"duration,omitempty" json:"duration,omitempty"`
-	TotalAmount           float64            `bson:"total_amount,omitempty" json:"total_amount,omitempty"`
-	PaymentStatus         string             `bson:"payment_status,omitempty" json:"payment_status,omitempty"`
-	PaymentVirtualAccount string             `bson:"payment_virtual_account,omitempty" json:"payment_virtual_account,omitempty"`
-	PaymentURL            string             `bson:"payment_url,omitempty" json:"payment_url,omitempty"` // URL pembayaran
-	OrderStatus           string             `bson:"order_status,omitempty" json:"order_status,omitempty"`
-	OwnerID               primitive.ObjectID `bson:"owner_id,omitempty" json:"owner_id,omitempty"` // Diambil untuk mendapatkan nomor WhatsApp pemilik dari collection users
-	CreatedAt             string             `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	UpdatedAt             string             `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+	Name                  string               `json:"name,omitempty" bson:"name,omitempty"`
+	Email                 string               `bson:"email,omitempty" json:"email,omitempty"`
+	PhoneNumber           string               `bson:"phonenumber,omitempty" json:"phonenumber,omitempty"` // Nomor WhatsApp pemesan
+	CheckInDate           string               `bson:"check_in_date,omitempty" json:"check_in_date,omitempty"`
+	Duration              string               `bson:"duration,omitempty" json:"duration,omitempty"`
+	TotalAmount           float64              `bson:"total_amount,omitempty" json:"total_amount,omitempty"`
+	PaymentStatus         string               `bson:"payment_status,omitempty" json:"payment_status,omitempty"`
+	PaymentVirtualAccount string               `bson:"payment_virtual_account,omitempty" json:"payment_virtual_account,omitempty"`
+	PaymentURL            string               `bson:"payment_url,omitempty" json:"payment_url,omitempty"` // URL pembayaran
+	OrderStatus           string               `bson:"order_status,omitempty" json:"order_status,omitempty"`
+	OwnerID               primitive.ObjectID   `bson:"owner_id,omitempty" json:"owner_id,omitempty"` // Diambil untuk mendapatkan nomor WhatsApp pemilik dari collection users
+	CreatedAt             string               `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	UpdatedAt             string               `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
 type OrderStatus struct {

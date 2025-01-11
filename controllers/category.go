@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gosimple/slug"
 	"github.com/organisasi/kosconnectbackend/config"
 	"github.com/organisasi/kosconnectbackend/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -20,8 +19,7 @@ func CreateCategory(c *gin.Context) {
 		return
 	}
 
-	// Generate slug from name
-	category.Slug = slug.Make(category.Name)
+	// Generate slug from name aslinya udh di hapus tapi jaga jaga aja
 	category.CategoryID = primitive.NewObjectID()
 
 	collection := config.DB.Collection("categories")
@@ -86,11 +84,6 @@ func UpdateCategory(c *gin.Context) {
 	if err := c.ShouldBindJSON(&category); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
-	}
-
-	// Update slug if name is updated
-	if category.Name != "" {
-		category.Slug = slug.Make(category.Name)
 	}
 
 	collection := config.DB.Collection("categories")

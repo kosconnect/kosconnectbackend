@@ -92,7 +92,7 @@ func CreateBoardingHouse(c *gin.Context) {
 	}
 
 	// Validasi setiap fasilitas di database
-	collectionFacilities := config.DB.Collection("customFacility")
+	collectionFacilities := config.DB.Collection("facilities")
 	validFacilities := []primitive.ObjectID{}
 	for _, facilityID := range facilitiesIDs {
 		facilityObjectID, err := primitive.ObjectIDFromHex(facilityID)
@@ -218,68 +218,29 @@ func generateSlug(name string) string {
 	return reg.ReplaceAllString(slug, "") + "-" + uuid.NewString()
 }
 
-// GetAllBoardingHouse retrieves all boarding houses along with their associated category name, owner name, and facility names
 func GetAllBoardingHouse(c *gin.Context) {
 	collection := config.DB.Collection("boardinghouses")
-	var boardingHouses []models.BoardingHouse
 
-	cursor, err := collection.Find(context.Background(), bson.M{})
+	// Ambil semua data boarding house dari database
+	cursor, err := collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch boarding houses"})
 		return
 	}
-	defer cursor.Close(context.Background())
+	defer cursor.Close(context.TODO())
 
-	// Iterate over all boarding houses and fetch associated data
-	for cursor.Next(context.Background()) {
-		var boardingHouse models.BoardingHouse
-		if err := cursor.Decode(&boardingHouse); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding boarding house"})
-			return
-		}
-
-		// Fetch the associated category name
-		collectionCategories := config.DB.Collection("categories")
-		var category models.Category
-		err = collectionCategories.FindOne(context.TODO(), bson.M{"_id": boardingHouse.CategoryID}).Decode(&category)
-		if err != nil {
-			category.Name = "Unknown" // If the category is not found, set to "Unknown"
-		}
-
-		// Fetch the associated owner name
-		collectionUsers := config.DB.Collection("users")
-		var owner models.User
-		err = collectionUsers.FindOne(context.TODO(), bson.M{
-			"_id":  boardingHouse.OwnerID,
-			"role": "owner", // Ensure the user is an owner
-		}).Decode(&owner)
-		if err != nil {
-			owner.FullName = "Unknown" // If the owner is not found or does not have the "owner" role, set to "Unknown"
-		}
-
-		// Fetch the associated facility names
-		collectionFacilities := config.DB.Collection("customFacility")
-		var facilityNames []string
-		for _, facilityID := range boardingHouse.Facilities {
-			var facility models.CustomFacility
-			err = collectionFacilities.FindOne(context.TODO(), bson.M{"_id": facilityID}).Decode(&facility)
-			if err != nil {
-				continue // Skip if the facility is not found
-			}
-			facilityNames = append(facilityNames, facility.Name)
-		}
-
-		// Add the associated data to the boarding house
-		boardingHouse.CategoryName = category.Name
-		boardingHouse.OwnerName = owner.FullName
-		boardingHouse.FacilityNames = facilityNames
-
-		// Append the updated boarding house to the result slice
-		boardingHouses = append(boardingHouses, boardingHouse)
+	// Simpan hasilnya dalam slice
+	var boardingHouses []models.BoardingHouse
+	if err = cursor.All(context.TODO(), &boardingHouses); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse boarding houses"})
+		return
 	}
 
-	// Return all boarding houses with their associated data
-	c.JSON(http.StatusOK, gin.H{"data": boardingHouses})
+	// Kembalikan data tanpa memodifikasi
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Boarding houses fetched successfully",
+		"data":    boardingHouses,
+	})
 }
 
 // GetBoardingHouseByID retrieves a boarding house by ID along with its associated facility names, category name, and owner name
@@ -321,10 +282,10 @@ func GetBoardingHouseByID(c *gin.Context) {
 	}
 
 	// Fetch the associated facility names
-	collectionFacilities := config.DB.Collection("customFacility")
+	collectionFacilities := config.DB.Collection("facilities")
 	var facilityNames []string
 	for _, facilityID := range boardingHouse.Facilities {
-		var facility models.CustomFacility
+		var facility models.Facility
 		err = collectionFacilities.FindOne(context.TODO(), bson.M{"_id": facilityID}).Decode(&facility)
 		if err != nil {
 			continue // Skip if the facility is not found
@@ -576,10 +537,10 @@ func UpdateBoardingHouse(c *gin.Context) {
 		owner.FullName = "Unknown"
 	}
 
-	collectionFacilities := config.DB.Collection("customFacility")
+	collectionFacilities := config.DB.Collection("facilities")
 	var facilityNames []string
 	for _, facilityID := range updatedBoardingHouse.Facilities {
-		var facility models.CustomFacility
+		var facility models.Facility
 		err = collectionFacilities.FindOne(context.TODO(), bson.M{"_id": facilityID}).Decode(&facility)
 		if err != nil {
 			continue
