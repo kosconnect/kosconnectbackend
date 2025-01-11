@@ -26,9 +26,10 @@ func CreateBoardingHouse(c *gin.Context) {
 	// Ambil klaim user dari JWT
 	claims := c.MustGet("user").(jwt.MapClaims)
 
-	// Validasi role "owner"
-	if role, ok := claims["role"].(string); !ok || role != "owner" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can create boarding houses"})
+	// Ambil role dan user ID dari klaim
+	role, ok := claims["role"].(string)
+	if !ok || (role != "admin" && role != "owner") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins or owners can create boarding houses"})
 		return
 	}
 
@@ -58,15 +59,63 @@ func CreateBoardingHouse(c *gin.Context) {
 		return
 	}
 
-	// Parse facilities
+	// Validasi OwnerID untuk admin
+	var ownerObjectID primitive.ObjectID
+	if role == "admin" {
+		ownerIDFromForm := c.PostForm("owner_id")
+		if ownerIDFromForm == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "OwnerID is required for admin"})
+			return
+		}
+
+		var err error
+		ownerObjectID, err = primitive.ObjectIDFromHex(ownerIDFromForm)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OwnerID format"})
+			return
+		}
+	} else if role == "owner" {
+		var err error
+		ownerObjectID, err = primitive.ObjectIDFromHex(ownerID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OwnerID format"})
+			return
+		}
+	}
+
+	// Validasi fasilitas
 	facilitiesJSON := c.PostForm("facilities")
-	var facilities []models.Facilities
-	if err := json.Unmarshal([]byte(facilitiesJSON), &facilities); err != nil {
+	var facilitiesIDs []string
+	if err := json.Unmarshal([]byte(facilitiesJSON), &facilitiesIDs); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facilities format"})
 		return
 	}
 
-	// Ambil longitude dan latitude dari form-data
+	// Validasi setiap fasilitas di database
+	collectionFacilities := config.DB.Collection("customFacility")
+	validFacilities := []primitive.ObjectID{}
+	for _, facilityID := range facilitiesIDs {
+		facilityObjectID, err := primitive.ObjectIDFromHex(facilityID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facility ID"})
+			return
+		}
+
+		var facility models.CustomFacility
+		err = collectionFacilities.FindOne(context.TODO(), bson.M{
+			"_id":  facilityObjectID,
+			"type": "boarding_house",
+		}).Decode(&facility)
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facility type or facility does not exist"})
+			return
+		}
+
+		validFacilities = append(validFacilities, facilityObjectID)
+	}
+
+	// Ambil longitude dan latitude
 	latitudeStr := c.PostForm("latitude")
 	longitudeStr := c.PostForm("longitude")
 	latitude, err := strconv.ParseFloat(latitudeStr, 64)
@@ -80,18 +129,7 @@ func CreateBoardingHouse(c *gin.Context) {
 		return
 	}
 
-	// Ambil tempat publik terdekat (misalnya dalam radius 1km)
-	maxDistance := 1.0 // Jarak maksimal dalam km, misalnya 1 km
-	closestPlaces, err := helper.GetClosestPlaces(longitude, latitude, config.GetHereAPIKey(), "point_of_interest", maxDistance)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get closest places: %v", err)})
-		return
-	}
-
-	// Log untuk memastikan closestPlaces berisi data
-	fmt.Printf("Closest places: %+v\n", closestPlaces)
-
-	// Process images
+	// Proses gambar
 	var boardinghouseImageURL []string
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -134,7 +172,6 @@ func CreateBoardingHouse(c *gin.Context) {
 			return
 		}
 
-		// Ganti URL GitHub dengan raw.githubusercontent.com dan perbaiki path (hilangkan 'blob')
 		imageURL := strings.Replace(resp.GetContent().GetHTMLURL(), "github.com", "raw.githubusercontent.com", 1)
 		imageURL = strings.Replace(imageURL, "/blob/", "/", 1)
 
@@ -144,27 +181,20 @@ func CreateBoardingHouse(c *gin.Context) {
 	// Generate slug
 	slug := generateSlug(name)
 
-	ownerObjectID, err := primitive.ObjectIDFromHex(ownerID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
-		return
-	}
-
-	// Create boarding house model
+	// Buat model boarding house
 	boardingHouse := models.BoardingHouse{
-		BoardingHouseID:            primitive.NewObjectID(),
-		OwnerID:       ownerObjectID,
-		CategoryID:    categoryID,
-		Name:          c.PostForm("name"),
-		Slug:          slug,
-		Address:       address,
-		Longitude:     longitude,
-		Latitude:      latitude,
-		Description:   description,
-		Facilities:    facilities,            // Sesuaikan input fasilitas
-		Images:        boardinghouseImageURL, // Sesuaikan input gambar
-		Rules:         rules,
-		ClosestPlaces: closestPlaces,
+		BoardingHouseID: primitive.NewObjectID(),
+		OwnerID:         ownerObjectID,
+		CategoryID:      categoryID,
+		Name:            name,
+		Slug:            slug,
+		Address:         address,
+		Longitude:       longitude,
+		Latitude:        latitude,
+		Description:     description,
+		Facilities:      validFacilities,
+		Images:          boardinghouseImageURL,
+		Rules:           rules,
 	}
 
 	collection := config.DB.Collection("boardinghouses")
@@ -188,7 +218,7 @@ func generateSlug(name string) string {
 	return reg.ReplaceAllString(slug, "") + "-" + uuid.NewString()
 }
 
-// AMBIL SEMUA BOARDING HOUSE INI BUAT DI FE LANDING PAGE
+// GetAllBoardingHouse retrieves all boarding houses along with their associated category name, owner name, and facility names
 func GetAllBoardingHouse(c *gin.Context) {
 	collection := config.DB.Collection("boardinghouses")
 	var boardingHouses []models.BoardingHouse
@@ -200,26 +230,60 @@ func GetAllBoardingHouse(c *gin.Context) {
 	}
 	defer cursor.Close(context.Background())
 
+	// Iterate over all boarding houses and fetch associated data
 	for cursor.Next(context.Background()) {
 		var boardingHouse models.BoardingHouse
 		if err := cursor.Decode(&boardingHouse); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding boarding house"})
 			return
 		}
+
+		// Fetch the associated category name
+		collectionCategories := config.DB.Collection("categories")
+		var category models.Category
+		err = collectionCategories.FindOne(context.TODO(), bson.M{"_id": boardingHouse.CategoryID}).Decode(&category)
+		if err != nil {
+			category.Name = "Unknown" // If the category is not found, set to "Unknown"
+		}
+
+		// Fetch the associated owner name
+		collectionUsers := config.DB.Collection("users")
+		var owner models.User
+		err = collectionUsers.FindOne(context.TODO(), bson.M{
+			"_id":  boardingHouse.OwnerID,
+			"role": "owner", // Ensure the user is an owner
+		}).Decode(&owner)
+		if err != nil {
+			owner.FullName = "Unknown" // If the owner is not found or does not have the "owner" role, set to "Unknown"
+		}
+
+		// Fetch the associated facility names
+		collectionFacilities := config.DB.Collection("customFacility")
+		var facilityNames []string
+		for _, facilityID := range boardingHouse.Facilities {
+			var facility models.CustomFacility
+			err = collectionFacilities.FindOne(context.TODO(), bson.M{"_id": facilityID}).Decode(&facility)
+			if err != nil {
+				continue // Skip if the facility is not found
+			}
+			facilityNames = append(facilityNames, facility.Name)
+		}
+
+		// Add the associated data to the boarding house
+		boardingHouse.CategoryName = category.Name
+		boardingHouse.OwnerName = owner.FullName
+		boardingHouse.FacilityNames = facilityNames
+
+		// Append the updated boarding house to the result slice
 		boardingHouses = append(boardingHouses, boardingHouse)
 	}
 
+	// Return all boarding houses with their associated data
 	c.JSON(http.StatusOK, gin.H{"data": boardingHouses})
 }
 
-// GET BOARDING HOUSE BY ID (ROLE BEBAS)
+// GetBoardingHouseByID retrieves a boarding house by ID along with its associated facility names, category name, and owner name
 func GetBoardingHouseByID(c *gin.Context) {
-	claims := c.MustGet("user").(jwt.MapClaims)
-	if _, ok := claims["user_id"].(string); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized access"})
-		return
-	}
-
 	id := c.Param("id")
 	boardingHouseID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -227,17 +291,53 @@ func GetBoardingHouseByID(c *gin.Context) {
 		return
 	}
 
+	// Retrieve the boarding house
 	collection := config.DB.Collection("boardinghouses")
 	var boardingHouse models.BoardingHouse
-
-	err = collection.FindOne(context.Background(), bson.M{"_id": boardingHouseID}).Decode(&boardingHouse)
+	err = collection.FindOne(context.TODO(), bson.M{"_id": boardingHouseID}).Decode(&boardingHouse)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Boarding house not found"})
 		return
 	}
 
+	// Fetch the associated category name
+	collectionCategories := config.DB.Collection("categories")
+	var category models.Category
+	err = collectionCategories.FindOne(context.TODO(), bson.M{"_id": boardingHouse.CategoryID}).Decode(&category)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+		return
+	}
+
+	// Fetch the associated owner name
+	collectionUsers := config.DB.Collection("users")
+	var owner models.User
+	err = collectionUsers.FindOne(context.TODO(), bson.M{
+		"_id":  boardingHouse.OwnerID,
+		"role": "owner", // Ensure the user is an owner
+	}).Decode(&owner)
+	if err != nil {
+		owner.FullName = "Unknown" // If the owner is not found or does not have the "owner" role, set to "Unknown"
+	}
+
+	// Fetch the associated facility names
+	collectionFacilities := config.DB.Collection("customFacility")
+	var facilityNames []string
+	for _, facilityID := range boardingHouse.Facilities {
+		var facility models.CustomFacility
+		err = collectionFacilities.FindOne(context.TODO(), bson.M{"_id": facilityID}).Decode(&facility)
+		if err != nil {
+			continue // Skip if the facility is not found
+		}
+		facilityNames = append(facilityNames, facility.Name)
+	}
+
+	// Respond with boarding house data including category, owner name, and facility names
 	c.JSON(http.StatusOK, gin.H{
-		"data": boardingHouse,
+		"boardingHouse": boardingHouse,
+		"category":      category.Name,  // Include the category name
+		"owner":         owner.FullName, // Include the owner name
+		"facilities":    facilityNames,
 	})
 }
 
@@ -277,14 +377,38 @@ func GetBoardingHouseByOwnerID(c *gin.Context) {
 
 // UPDATE / PATCH
 func UpdateBoardingHouse(c *gin.Context) {
+	claims := c.MustGet("user").(jwt.MapClaims)
+
+	// Ambil role dan user_id dari klaim JWT
+	role, ok := claims["role"].(string)
+	if !ok || (role != "owner" && role != "admin") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only owners or admins can update boarding houses"})
+		return
+	}
+
+	var ownerID primitive.ObjectID
+	if role == "owner" {
+		// Ambil owner_id dari klaim JWT
+		var err error
+		ownerID, err = primitive.ObjectIDFromHex(claims["user_id"].(string))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+			return
+		}
+	}
+
 	// Ambil ID boarding house dari parameter
 	boardingHouseID := c.Param("id")
-
-	// Convert ID boarding house
 	objectID, err := primitive.ObjectIDFromHex(boardingHouseID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid boarding house ID"})
 		return
+	}
+
+	// Filter query untuk memastikan hanya owner yang memiliki boarding house tersebut dapat mengupdate
+	filter := bson.M{"_id": objectID}
+	if role == "owner" {
+		filter["owner_id"] = ownerID
 	}
 
 	// Parse form-data
@@ -321,12 +445,12 @@ func UpdateBoardingHouse(c *gin.Context) {
 
 	// Update facilities
 	if facilitiesJSON := c.PostForm("facilities"); facilitiesJSON != "" {
-		var facilities []models.Facilities
+		var facilities []primitive.ObjectID
 		if err := json.Unmarshal([]byte(facilitiesJSON), &facilities); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facilities format"})
 			return
 		}
-		updateFields["facilities"] = facilities
+		updateFields["facilities_id"] = facilities
 	}
 
 	// Update location and fetch closest places
@@ -346,15 +470,6 @@ func UpdateBoardingHouse(c *gin.Context) {
 
 		updateFields["latitude"] = latitude
 		updateFields["longitude"] = longitude
-
-		// Fetch closest places
-		maxDistance := 1.0
-		closestPlaces, err := helper.GetClosestPlaces(longitude, latitude, config.GetHereAPIKey(), "point_of_interest", maxDistance)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get closest places: %v", err)})
-			return
-		}
-		updateFields["closest_places"] = closestPlaces
 	}
 
 	// Update images
@@ -421,7 +536,7 @@ func UpdateBoardingHouse(c *gin.Context) {
 	collection := config.DB.Collection("boardinghouses")
 	res, err := collection.UpdateOne(
 		context.Background(),
-		bson.M{"_id": objectID}, // Query hanya berdasarkan ID
+		filter, // Filter berdasarkan role
 		bson.M{"$set": updateFields},
 	)
 	if err != nil {
@@ -430,8 +545,8 @@ func UpdateBoardingHouse(c *gin.Context) {
 	}
 
 	// Validasi apakah ada dokumen yang di-update
-	if res.ModifiedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "No boarding house found or no changes made"})
+	if res.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No boarding house found or unauthorized"})
 		return
 	}
 
@@ -443,24 +558,71 @@ func UpdateBoardingHouse(c *gin.Context) {
 		return
 	}
 
+	// Fetch associated category, owner, and facilities
+	collectionCategories := config.DB.Collection("categories")
+	var category models.Category
+	err = collectionCategories.FindOne(context.TODO(), bson.M{"_id": updatedBoardingHouse.CategoryID}).Decode(&category)
+	if err != nil {
+		category.Name = "Unknown"
+	}
+
+	collectionUsers := config.DB.Collection("users")
+	var owner models.User
+	err = collectionUsers.FindOne(context.TODO(), bson.M{
+		"_id":  updatedBoardingHouse.OwnerID,
+		"role": "owner",
+	}).Decode(&owner)
+	if err != nil {
+		owner.FullName = "Unknown"
+	}
+
+	collectionFacilities := config.DB.Collection("customFacility")
+	var facilityNames []string
+	for _, facilityID := range updatedBoardingHouse.Facilities {
+		var facility models.CustomFacility
+		err = collectionFacilities.FindOne(context.TODO(), bson.M{"_id": facilityID}).Decode(&facility)
+		if err != nil {
+			continue
+		}
+		facilityNames = append(facilityNames, facility.Name)
+	}
+
+	// Return the updated boarding house data
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Boarding house updated successfully",
-		"data":    updatedBoardingHouse,
+		"data": gin.H{
+			"boarding_house": updatedBoardingHouse,
+			"category":       category.Name,
+			"owner":          owner.FullName,
+			"facilities":     facilityNames,
+		},
 	})
 }
 
-// DELETE OLEH OWNER
+// DELETE OLEH OWNER DAN ADMIN
 func DeleteBoardingHouse(c *gin.Context) {
 	claims := c.MustGet("user").(jwt.MapClaims)
 
-	if role, ok := claims["role"].(string); !ok || role != "owner" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can delete boarding houses"})
+	// Validate if the user role is 'owner' or 'admin'
+	role, ok := claims["role"].(string)
+	if !ok || (role != "owner" && role != "admin") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only owners or admins can delete boarding houses"})
 		return
 	}
 
-	ownerID := claims["user_id"].(string)
-	ownerObjectID, _ := primitive.ObjectIDFromHex(ownerID)
+	// Get the owner ID from the claims and validate it's a valid ObjectID
+	ownerID, ok := claims["user_id"].(string)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+		return
+	}
+	ownerObjectID, err := primitive.ObjectIDFromHex(ownerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID format"})
+		return
+	}
 
+	// Get the boarding house ID from the URL params and validate it's a valid ObjectID
 	id := c.Param("id")
 	boardingHouseID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -468,15 +630,24 @@ func DeleteBoardingHouse(c *gin.Context) {
 		return
 	}
 
+	// If the user is an admin, they can delete any boarding house
+	// If the user is an owner, they can only delete their own boarding house
+	filter := bson.M{"_id": boardingHouseID}
+	if role == "owner" {
+		filter["owner_id"] = ownerObjectID
+	}
+
+	// Perform the deletion
 	collection := config.DB.Collection("boardinghouses")
 	result, err := collection.DeleteOne(
 		context.Background(),
-		bson.M{"_id": boardingHouseID, "owner_id": ownerObjectID},
+		filter,
 	)
 	if err != nil || result.DeletedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Boarding house not found or you are not the owner"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Boarding house not found or unauthorized"})
 		return
 	}
 
+	// Return success message if deletion is successful
 	c.JSON(http.StatusOK, gin.H{"message": "Boarding house deleted successfully"})
 }

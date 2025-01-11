@@ -135,6 +135,31 @@ func GetUserByID(c *gin.Context) {
     c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
+// Get All Owners (Admin can use this to choose an owner)
+func GetAllOwners(c *gin.Context) {
+    collection := config.DB.Collection("users")
+    var owners []models.User
+
+    cursor, err := collection.Find(context.TODO(), bson.M{"role": "owner"})
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch owners"})
+        return
+    }
+    defer cursor.Close(context.TODO())
+
+    for cursor.Next(context.TODO()) {
+        var owner models.User
+        if err := cursor.Decode(&owner); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding owner"})
+            return
+        }
+        owners = append(owners, owner)
+    }
+
+    // Return only the email and _id (ownerID) to frontend
+    c.JSON(http.StatusOK, owners)
+}
+
 // Update user (for the logged-in user or admin)
 func UpdateMe(c *gin.Context) {
 	userID, err := getUserIDFromToken(c)

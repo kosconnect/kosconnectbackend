@@ -1,208 +1,195 @@
 package controllers
 
 import (
-    "context"
-    "net/http"
+	"context"
+	"net/http"
 
-    "github.com/gin-gonic/gin"
-    "github.com/organisasi/kosconnectbackend/config"
-    "github.com/organisasi/kosconnectbackend/models"
-    "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/bson/primitive"
-    "github.com/golang-jwt/jwt/v5"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/organisasi/kosconnectbackend/config"
+	"github.com/organisasi/kosconnectbackend/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Create CustomFacility
 func CreateCustomFacility(c *gin.Context) {
-    // Ambil klaim user dari JWT
-    claims := c.MustGet("user").(jwt.MapClaims)
+	claims := c.MustGet("user").(jwt.MapClaims)
+	role, _ := claims["role"].(string)
 
-    if role, ok := claims["role"].(string); !ok || role != "owner" {
-        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can create custom facilities"})
-        return
-    }
+	var facility models.CustomFacility
+	if err := c.ShouldBindJSON(&facility); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
 
-    ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
-        return
-    }
+	if role == "admin" {
+		if facility.OwnerID == primitive.NilObjectID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "OwnerID is required for admin"})
+			return
+		}
+	} else if role == "owner" {
+		ownerID, _ := primitive.ObjectIDFromHex(claims["user_id"].(string))
+		facility.OwnerID = ownerID
+	}
 
-    // Bind JSON input ke struct
-    var facility models.CustomFacility
-    if err := c.ShouldBindJSON(&facility); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-        return
-    }
+	facility.CustomFacilityID = primitive.NewObjectID()
+	collection := config.DB.Collection("customFacility")
+	if _, err := collection.InsertOne(context.TODO(), facility); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create custom facility"})
+		return
+	}
 
-    // Generate ObjectID untuk facility
-    facility.CustomFacilityID = primitive.NewObjectID().Hex()
-    facility.OwnerID = ownerID
-
-    // Simpan ke koleksi MongoDB
-    collection := config.DB.Collection("customFacility")
-    _, err = collection.InsertOne(context.TODO(), facility)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create custom facility"})
-        return
-    }
-
-    // Format harga dalam rupiah
-    formattedPrice := formatrupiah(facility.Price)
-
-    // Respon sukses
-    c.JSON(http.StatusCreated, gin.H{
-        "message": "Custom facility created successfully",
-        "data": gin.H{
-            "id":          facility.CustomFacilityID,
-            "owner_id":    facility.OwnerID,
-            "name":        facility.Name,
-            "price":       formattedPrice, // Harga dalam format Indonesia
-        },
-    })
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Custom facility created successfully",
+		"data":    facility,
+	})
 }
-
 
 // Get All CustomFacilities
 func GetAllCustomFacilities(c *gin.Context) {
-    collection := config.DB.Collection("customFacility")
-    var facilities []models.CustomFacility
+	collection := config.DB.Collection("customFacility")
+	var facilities []models.CustomFacility
 
-    cursor, err := collection.Find(context.TODO(), bson.M{})
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch custom facilities"})
-        return
-    }
-    defer cursor.Close(context.TODO())
+	cursor, err := collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch custom facilities"})
+		return
+	}
+	defer cursor.Close(context.TODO())
 
-    for cursor.Next(context.TODO()) {
-        var facility models.CustomFacility
-        if err := cursor.Decode(&facility); err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding custom facility"})
-            return
-        }
-        facilities = append(facilities, facility)
-    }
+	if err := cursor.All(context.TODO(), &facilities); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse custom facilities"})
+		return
+	}
 
-    c.JSON(http.StatusOK, facilities)
+	c.JSON(http.StatusOK, facilities)
 }
 
 // Get CustomFacility by ID
 func GetCustomFacilityByID(c *gin.Context) {
-    id := c.Param("id")
-    collection := config.DB.Collection("customFacility")
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facility ID"})
+		return
+	}
 
-    var facility models.CustomFacility
-    err := collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&facility)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Custom facility not found"})
-        return
-    }
+	collection := config.DB.Collection("customFacility")
+	var facility models.CustomFacility
+	if err := collection.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&facility); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Custom facility not found"})
+		return
+	}
 
-    c.JSON(http.StatusOK, facility)
+	c.JSON(http.StatusOK, facility)
 }
 
 // Get CustomFacilities by OwnerID
 func GetCustomFacilitiesByOwnerID(c *gin.Context) {
-    // Ambil klaim user dari JWT
+	// Ambil klaim user dari JWT
 	claims := c.MustGet("user").(jwt.MapClaims)
 
-    if role, ok := claims["role"].(string); !ok || role != "owner" {
-        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can access their custom facilities"})
-        return
-    }
+	if role, ok := claims["role"].(string); !ok || role != "owner" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can access their custom facilities"})
+		return
+	}
 
-    ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
-        return
-    }
+	ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+		return
+	}
 
-    collection := config.DB.Collection("customFacility")
-    var facilities []models.CustomFacility
+	collection := config.DB.Collection("customFacility")
+	var facilities []models.CustomFacility
 
-    cursor, err := collection.Find(context.TODO(), bson.M{"owner_id": ownerID})
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch custom facilities"})
-        return
-    }
-    defer cursor.Close(context.TODO())
+	cursor, err := collection.Find(context.TODO(), bson.M{"owner_id": ownerID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch custom facilities"})
+		return
+	}
+	defer cursor.Close(context.TODO())
 
-    for cursor.Next(context.TODO()) {
-        var facility models.CustomFacility
-        if err := cursor.Decode(&facility); err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding custom facility"})
-            return
-        }
-        facilities = append(facilities, facility)
-    }
+	for cursor.Next(context.TODO()) {
+		var facility models.CustomFacility
+		if err := cursor.Decode(&facility); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding custom facility"})
+			return
+		}
+		facilities = append(facilities, facility)
+	}
 
-    c.JSON(http.StatusOK, facilities)
+	c.JSON(http.StatusOK, facilities)
 }
 
 // Update CustomFacility
 func UpdateCustomFacility(c *gin.Context) {
-    // Ambil klaim user dari JWT
 	claims := c.MustGet("user").(jwt.MapClaims)
+	role, _ := claims["role"].(string)
 
-    if role, ok := claims["role"].(string); !ok || role != "owner" {
-        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can update custom facilities"})
-        return
-    }
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facility ID"})
+		return
+	}
 
-    ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
-        return
-    }
+	var updateData models.CustomFacility
+	if err := c.ShouldBindJSON(&updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
 
-    id := c.Param("id")
-    var updateData models.CustomFacility
+	collection := config.DB.Collection("customFacility")
+	filter := bson.M{"_id": objID}
 
-    if err := c.ShouldBindJSON(&updateData); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-        return
-    }
+	if role == "owner" {
+		ownerID, _ := primitive.ObjectIDFromHex(claims["user_id"].(string))
+		filter["owner_id"] = ownerID
+	}
 
-    collection := config.DB.Collection("customFacility")
-    _, err = collection.UpdateOne(
-        context.TODO(),
-        bson.M{"_id": id, "owner_id": ownerID},
-        bson.M{"$set": bson.M{"name": updateData.Name, "price": updateData.Price}},
-    )
+	update := bson.M{"$set": bson.M{"name": updateData.Name, "price": updateData.Price}}
+	if _, err := collection.UpdateOne(context.TODO(), filter, update); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update custom facility"})
+		return
+	}
 
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update custom facility"})
-        return
-    }
+	var updatedFacility models.CustomFacility
+	if err := collection.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&updatedFacility); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated facility"})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{"message": "Custom facility updated successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Custom facility updated successfully",
+		"data":    updatedFacility,
+	})
 }
 
 // Delete CustomFacility
 func DeleteCustomFacility(c *gin.Context) {
-    // Ambil klaim user dari JWT
 	claims := c.MustGet("user").(jwt.MapClaims)
+	role, _ := claims["role"].(string)
 
-    if role, ok := claims["role"].(string); !ok || role != "owner" {
-        c.JSON(http.StatusForbidden, gin.H{"error": "Only owners can delete custom facilities"})
-        return
-    }
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid facility ID"})
+		return
+	}
 
-    ownerID, err := primitive.ObjectIDFromHex(claims["user_id"].(string))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
-        return
-    }
+	filter := bson.M{"_id": objID}
+	if role == "owner" {
+		ownerID, _ := primitive.ObjectIDFromHex(claims["user_id"].(string))
+		filter["owner_id"] = ownerID
+	}
 
-    id := c.Param("id")
-    collection := config.DB.Collection("customFacility")
+	collection := config.DB.Collection("customFacility")
+	if _, err := collection.DeleteOne(context.TODO(), filter); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete custom facility"})
+		return
+	}
 
-    _, err = collection.DeleteOne(context.TODO(), bson.M{"_id": id, "owner_id": ownerID})
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete custom facility"})
-        return
-    }
-
-    c.JSON(http.StatusOK, gin.H{"message": "Custom facility deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Custom facility deleted successfully"})
 }

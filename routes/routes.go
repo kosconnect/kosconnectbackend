@@ -25,9 +25,10 @@ func UserRoutes(router *gin.Engine) {
 	{
 		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateUser)                     // Admin creates a user
 		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllUsers)                     // Admin views all users
+		api.GET("/owner", middlewares.JWTAuthMiddleware(), controllers.GetAllOwners)               // ambil semua data owner
 		api.GET("/me", middlewares.JWTAuthMiddleware(), controllers.GetMyAccount)                  // Logged-in user views their own account
 		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetUserByID)                  // Get user by ID
-		api.PUT("/me", middlewares.JWTAuthMiddleware(), controllers.UpdateMe)                   // Update user details for user yg login
+		api.PUT("/me", middlewares.JWTAuthMiddleware(), controllers.UpdateMe)                      // Update user details for user yg login
 		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateUser)                   // Update user details oleh admin
 		api.PUT("/:id/role", middlewares.JWTAuthMiddleware(), controllers.UpdateUserRole)          // Admin updates user role
 		api.PUT("/change-password", middlewares.JWTAuthMiddleware(), controllers.ChangePassword)   // berdasarkan pengguna yang login
@@ -90,25 +91,16 @@ func BoardingHouse(router *gin.Engine) {
 	}
 }
 
-func FacilityType(router *gin.Engine) {
-	api := router.Group("/api/facilitytypes")
+func Facility(router *gin.Engine) {
+	api := router.Group("/api/facility")
 	{
-		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateFacilityType)
-		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllFacilityTypes)
-		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetFacilityTypeByID)
-		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateFacilityType)
-		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteFacilityType)
-	}
-}
-
-func RoomFacility(router *gin.Engine) {
-	api := router.Group("/api/roomfacilities")
-	{
-		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateRoomFacility)
-		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllRoomFacilities)
-		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetRoomFacilityByID)
-		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateRoomFacility)
-		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteRoomFacility)
+		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateFacility)
+		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllFacilities)
+		// yg type ini buat get data fasilitas berdasarkan typenya, ada /api/facility/type?type=room dan /api/facility/type?type=boarding_house cara manggilnya
+		api.GET("/type", middlewares.JWTAuthMiddleware(), controllers.GetFacilitiesByType) 
+		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetFacilityByID)
+		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateFacility)
+		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteFacility)
 	}
 }
 
