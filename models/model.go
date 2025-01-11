@@ -23,7 +23,6 @@ type User struct {
 type Category struct {
 	CategoryID primitive.ObjectID `bson:"_id,omitempty" json:"category_id,omitempty"`
 	Name       string             `bson:"name,omitempty" json:"name,omitempty"`
-	Slug       string             `bson:"slug,omitempty" json:"slug,omitempty"`
 }
 
 // BoardingHouse model

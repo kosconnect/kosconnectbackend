@@ -30,159 +30,180 @@ func formatrupiah(price float64) string {
 }
 
 func CreateRoom(c *gin.Context) {
-    // Parse form-data
-    err := c.Request.ParseMultipartForm(10 << 20)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form-data"})
-        return
-    }
+	// Parse form-data
+	err := c.Request.ParseMultipartForm(10 << 20)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form-data"})
+		return
+	}
 
-    // Extract fields
-    boardingHouseID, _ := primitive.ObjectIDFromHex(c.PostForm("boarding_house_id"))
-    roomType := c.PostForm("room_type")
-    size := c.PostForm("size")
+	// Extract fields
+	boardingHouseID, _ := primitive.ObjectIDFromHex(c.PostForm("boarding_house_id"))
+	roomType := c.PostForm("room_type")
+	size := c.PostForm("size")
 
-    // Parsing and defaulting prices
-    priceMonthlyStr := c.PostForm("price_monthly")
-    priceMonthly := 0
-    if priceMonthlyStr != "" {
-        priceMonthly, _ = strconv.Atoi(priceMonthlyStr)
-    }
+	// Parsing and defaulting prices
+	priceMonthlyStr := c.PostForm("price_monthly")
+	priceMonthly := 0
+	if priceMonthlyStr != "" {
+		priceMonthly, _ = strconv.Atoi(priceMonthlyStr)
+	}
 
-    priceQuarterlyStr := c.PostForm("price_quarterly")
-    priceQuarterly := 0
-    if priceQuarterlyStr != "" {
-        priceQuarterly, _ = strconv.Atoi(priceQuarterlyStr)
-    }
+	priceQuarterlyStr := c.PostForm("price_quarterly")
+	priceQuarterly := 0
+	if priceQuarterlyStr != "" {
+		priceQuarterly, _ = strconv.Atoi(priceQuarterlyStr)
+	}
 
-    priceSemiAnnualStr := c.PostForm("price_semi_annual")
-    priceSemiAnnual := 0
-    if priceSemiAnnualStr != "" {
-        priceSemiAnnual, _ = strconv.Atoi(priceSemiAnnualStr)
-    }
+	priceSemiAnnualStr := c.PostForm("price_semi_annual")
+	priceSemiAnnual := 0
+	if priceSemiAnnualStr != "" {
+		priceSemiAnnual, _ = strconv.Atoi(priceSemiAnnualStr)
+	}
 
-    priceYearlyStr := c.PostForm("price_yearly")
-    priceYearly := 0
-    if priceYearlyStr != "" {
-        priceYearly, _ = strconv.Atoi(priceYearlyStr)
-    }
+	priceYearlyStr := c.PostForm("price_yearly")
+	priceYearly := 0
+	if priceYearlyStr != "" {
+		priceYearly, _ = strconv.Atoi(priceYearlyStr)
+	}
 
-    // Parse Room Facilities
-    var roomFacilities []primitive.ObjectID
-    roomFacilitiesJSON := c.PostForm("room_facilities")
-    if err := json.Unmarshal([]byte(roomFacilitiesJSON), &roomFacilities); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room facilities format"})
-        return
-    }
+	// Parse Room Facilities
+	var roomFacilities []primitive.ObjectID
+	roomFacilitiesJSON := c.PostForm("room_facilities")
+	if err := json.Unmarshal([]byte(roomFacilitiesJSON), &roomFacilities); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room facilities format"})
+		return
+	}
+	// Validasi Room Facilities
+	collectionFacilities := config.DB.Collection("facilities")
+	validRoomFacilities := []primitive.ObjectID{}
 
-    // Parse Custom Facilities
-    var customFacilities []primitive.ObjectID
-    customFacilitiesJSON := c.PostForm("custom_facilities")
-    if err := json.Unmarshal([]byte(customFacilitiesJSON), &customFacilities); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid custom facilities format"})
-        return
-    }
+	for _, facilityID := range roomFacilities {
+		// Cek apakah fasilitas ada dan typenya "room"
+		err := collectionFacilities.FindOne(context.TODO(), bson.M{
+			"_id":  facilityID,
+			"type": "room",
+		}).Err()
 
-    // Process images
-    var roomImageURL []string
-    form, err := c.MultipartForm()
-    if err == nil {
-        files := form.File["images"]
-        for _, fileHeader := range files {
-            file, err := fileHeader.Open()
-            if err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read uploaded file"})
-                return
-            }
-            defer file.Close()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Room facility with ID %s is not valid or not of type 'room'", facilityID.Hex()),
+			})
+			return
+		}
 
-            content, err := io.ReadAll(file)
-            if err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file content"})
-                return
-            }
+		// Tambahkan ke daftar fasilitas valid
+		validRoomFacilities = append(validRoomFacilities, facilityID)
+	}
 
-            ext := path.Ext(fileHeader.Filename)
-            uniqueFilename := fmt.Sprintf("RoomImages/%s%s", uuid.New().String(), ext)
+	// Parse Custom Facilities
+	var customFacilities []primitive.ObjectID
+	customFacilitiesJSON := c.PostForm("custom_facilities")
+	if err := json.Unmarshal([]byte(customFacilitiesJSON), &customFacilities); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid custom facilities format"})
+		return
+	}
 
-            githubConfig := helper.GitHubConfig{
-                AccessToken: config.GetGitHubToken(),
-                AuthorName:  "Balqis Rosa Sekamayang",
-                AuthorEmail: "balqisrosasekamayang@gmail.com",
-                Org:         "kosconnect",
-                Repo:        "img",
-                FilePath:    uniqueFilename,
-                FileContent: content,
-                Replace:     true,
-            }
+	// Process images
+	var roomImageURL []string
+	form, err := c.MultipartForm()
+	if err == nil {
+		files := form.File["images"]
+		for _, fileHeader := range files {
+			file, err := fileHeader.Open()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read uploaded file"})
+				return
+			}
+			defer file.Close()
 
-            resp, err := helper.UploadFile(context.Background(), githubConfig)
-            if err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upload file to GitHub: %v", err)})
-                return
-            }
+			content, err := io.ReadAll(file)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file content"})
+				return
+			}
 
-            // Ganti URL GitHub dengan raw.githubusercontent.com dan perbaiki path (hilangkan 'blob')
-            imageURL := strings.Replace(resp.GetContent().GetHTMLURL(), "github.com", "raw.githubusercontent.com", 1)
-            imageURL = strings.Replace(imageURL, "/blob/", "/", 1)
+			ext := path.Ext(fileHeader.Filename)
+			uniqueFilename := fmt.Sprintf("RoomImages/%s%s", uuid.New().String(), ext)
 
-            roomImageURL = append(roomImageURL, imageURL)
-        }
-    }
+			githubConfig := helper.GitHubConfig{
+				AccessToken: config.GetGitHubToken(),
+				AuthorName:  "Balqis Rosa Sekamayang",
+				AuthorEmail: "balqisrosasekamayang@gmail.com",
+				Org:         "kosconnect",
+				Repo:        "img",
+				FilePath:    uniqueFilename,
+				FileContent: content,
+				Replace:     true,
+			}
 
-    // Ambil nilai dari form (atau set default jika kosong)
-    numberAvailableStr := c.PostForm("number_available")
-    numberAvailable := 0
-    if numberAvailableStr != "" {
-        numberAvailable, _ = strconv.Atoi(numberAvailableStr)
-    }
+			resp, err := helper.UploadFile(context.Background(), githubConfig)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upload file to GitHub: %v", err)})
+				return
+			}
 
-    status := "Tidak Tersedia"
-    if numberAvailable >= 1 {
-        status = "Tersedia"
-    }
+			// Ganti URL GitHub dengan raw.githubusercontent.com dan perbaiki path (hilangkan 'blob')
+			imageURL := strings.Replace(resp.GetContent().GetHTMLURL(), "github.com", "raw.githubusercontent.com", 1)
+			imageURL = strings.Replace(imageURL, "/blob/", "/", 1)
 
-    // Create room model
-    room := models.Room{
-        RoomID:              primitive.NewObjectID(),
-        BoardingHouseID: boardingHouseID,
-        RoomType:        roomType,
-        Size:            size,
-        Price: models.RoomPrice{
-            Monthly:    priceMonthly,
-            Quarterly:  priceQuarterly,
-            SemiAnnual: priceSemiAnnual,
-            Yearly:     priceYearly,
-        },
-        RoomFacilities:   roomFacilities,  // Menggunakan ID fasilitas langsung
-        CustomFacilities: customFacilities, // Menggunakan ID fasilitas kustom langsung
-        NumberAvailable:  numberAvailable,
-        Status:           status,
-        Images:           roomImageURL,
-    }
+			roomImageURL = append(roomImageURL, imageURL)
+		}
+	}
 
-    collection := config.DB.Collection("rooms")
-    _, err = collection.InsertOne(context.Background(), room)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save room to database"})
-        return
-    }
+	// Ambil nilai dari form (atau set default jika kosong)
+	numberAvailableStr := c.PostForm("number_available")
+	numberAvailable := 0
+	if numberAvailableStr != "" {
+		numberAvailable, _ = strconv.Atoi(numberAvailableStr)
+	}
 
-    // Format response prices to rupiah
-    formattedPrices := map[string]string{
-        "monthly":     formatrupiah(float64(priceMonthly)),
-        "quarterly":   formatrupiah(float64(priceQuarterly)),
-        "semi_annual": formatrupiah(float64(priceSemiAnnual)),
-        "yearly":      formatrupiah(float64(priceYearly)),
-    }
+	status := "Tidak Tersedia"
+	if numberAvailable >= 1 {
+		status = "Tersedia"
+	}
 
-    c.JSON(http.StatusCreated, gin.H{
-        "message": "Room created successfully",
-        "data": gin.H{
-            "room":             room,  // Mengirimkan ID fasilitas seperti yang ada
-            "prices_formatted": formattedPrices,
-        },
-    })
+	// Create room model
+	room := models.Room{
+		RoomID:          primitive.NewObjectID(),
+		BoardingHouseID: boardingHouseID,
+		RoomType:        roomType,
+		Size:            size,
+		Price: models.RoomPrice{
+			Monthly:    priceMonthly,
+			Quarterly:  priceQuarterly,
+			SemiAnnual: priceSemiAnnual,
+			Yearly:     priceYearly,
+		},
+		RoomFacilities:   validRoomFacilities, // Menggunakan ID fasilitas langsung
+		CustomFacilities: customFacilities,    // Menggunakan ID fasilitas kustom langsung
+		NumberAvailable:  numberAvailable,
+		Status:           status,
+		Images:           roomImageURL,
+	}
+
+	collection := config.DB.Collection("rooms")
+	_, err = collection.InsertOne(context.Background(), room)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save room to database"})
+		return
+	}
+
+	// Format response prices to rupiah
+	formattedPrices := map[string]string{
+		"monthly":     formatrupiah(float64(priceMonthly)),
+		"quarterly":   formatrupiah(float64(priceQuarterly)),
+		"semi_annual": formatrupiah(float64(priceSemiAnnual)),
+		"yearly":      formatrupiah(float64(priceYearly)),
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Room created successfully",
+		"data": gin.H{
+			"room":             room, // Mengirimkan ID fasilitas seperti yang ada
+			"prices_formatted": formattedPrices,
+		},
+	})
 }
 
 // GetAllRoom retrieves all rooms for public view
@@ -190,6 +211,7 @@ func GetAllRoom(c *gin.Context) {
 	collection := config.DB.Collection("rooms")
 	var rooms []models.Room
 
+	// Query all documents in the rooms collection
 	cursor, err := collection.Find(context.Background(), bson.M{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms"})
@@ -197,15 +219,24 @@ func GetAllRoom(c *gin.Context) {
 	}
 	defer cursor.Close(context.Background())
 
+	// Decode each room document into the Room model
 	for cursor.Next(context.Background()) {
 		var room models.Room
 		if err := cursor.Decode(&room); err != nil {
+			// Log error and return JSON response
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding room"})
 			return
 		}
 		rooms = append(rooms, room)
 	}
 
+	// Check if no rooms were found
+	if len(rooms) == 0 {
+		c.JSON(http.StatusOK, gin.H{"message": "No rooms found", "data": []models.Room{}})
+		return
+	}
+
+	// Return the list of rooms
 	c.JSON(http.StatusOK, gin.H{"data": rooms})
 }
 
@@ -237,7 +268,7 @@ func GetRoomByBoardingHouseID(c *gin.Context) {
 		return
 	}
 
-	// Validasi jika role adalah "owner", hanya izinkan melihat boarding house miliknya
+	// Jika role adalah "owner", hanya izinkan melihat boarding house miliknya
 	if role == "owner" {
 		boardingHouseCollection := config.DB.Collection("boardinghouses")
 		filter := bson.M{"_id": boardingHouseObjectID, "owner_id": userObjectID}
@@ -352,39 +383,42 @@ func GetRoomDetailByID(c *gin.Context) {
 func GetRoomsForLandingPage(c *gin.Context) {
 	roomCollection := config.DB.Collection("rooms")
 
+	// Define aggregation pipeline
 	pipeline := mongo.Pipeline{
 		{
 			{Key: "$lookup", Value: bson.D{
-				{Key: "from", Value: "boardinghouses"},          // Join dengan koleksi BoardingHouse
-				{Key: "localField", Value: "boarding_house_id"}, // Field referensi dari koleksi Room
-				{Key: "foreignField", Value: "_id"},             // Field referensi di BoardingHouse
-				{Key: "as", Value: "boarding_house"},            // Hasil join disimpan di boarding_house
+				{Key: "from", Value: "boardinghouses"},           // Join dengan koleksi BoardingHouse
+				{Key: "localField", Value: "boarding_house_id"},   // Field referensi dari koleksi Room
+				{Key: "foreignField", Value: "_id"},               // Field referensi di BoardingHouse
+				{Key: "as", Value: "boarding_house"},              // Hasil join disimpan di boarding_house
 			}},
 		},
 		{
 			{Key: "$unwind", Value: bson.D{
-				{Key: "path", Value: "$boarding_house"}, // Unwind array ke objek
+				{Key: "path", Value: "$boarding_house"},         // Unwind array ke objek
+				{Key: "preserveNullAndEmptyArrays", Value: true}, // Pastikan tetap ada meskipun boarding house kosong
 			}},
 		},
 		{
 			{Key: "$lookup", Value: bson.D{
-				{Key: "from", Value: "categories"},                       // Join dengan koleksi Categories
-				{Key: "localField", Value: "boarding_house.category_id"}, // Referensi kategori
+				{Key: "from", Value: "categories"},                              // Join dengan koleksi Categories
+				{Key: "localField", Value: "boarding_house.category_id"},        // Referensi kategori
 				{Key: "foreignField", Value: "_id"},
 				{Key: "as", Value: "category"},
 			}},
 		},
 		{
 			{Key: "$unwind", Value: bson.D{
-				{Key: "path", Value: "$category"}, // Unwind array ke objek
+				{Key: "path", Value: "$category"},        // Unwind array ke objek
+				{Key: "preserveNullAndEmptyArrays", Value: true}, // Pastikan tetap ada meskipun kategori kosong
 			}},
 		},
 		{
 			{Key: "$project", Value: bson.D{
-				{Key: "room_name", Value: "$room_type"},                     // Nama kamar
-				{Key: "boarding_house_name", Value: "$boarding_house.name"}, // Nama kos
-				{Key: "address", Value: "$boarding_house.address"},          // Alamat kos
-				{Key: "price", Value: "$price.monthly"},                     // Harga bulanan
+				{Key: "room_name", Value: "$room_type"},                      // Nama kamar
+				{Key: "boarding_house_name", Value: "$boarding_house.name"},  // Nama kos
+				{Key: "address", Value: "$boarding_house.address"},           // Alamat kos
+				{Key: "price", Value: "$price.monthly"},                      // Harga bulanan
 				{Key: "status", Value: bson.D{ // Hitung Status
 					{Key: "status", Value: bson.D{
 						{Key: "$cond", Value: bson.A{
@@ -397,6 +431,8 @@ func GetRoomsForLandingPage(c *gin.Context) {
 						}},
 					}},
 				}},
+				{Key: "category_name", Value: "$category.name"},          // Nama kategori
+				{Key: "category_id", Value: "$category._id"},            // ID kategori
 				{Key: "images", Value: bson.D{
 					{Key: "$slice", Value: bson.A{"$images", 1}}, // Gambar pertama
 				}},
@@ -404,18 +440,21 @@ func GetRoomsForLandingPage(c *gin.Context) {
 		},
 	}
 
+	// Menjalankan agregasi
 	cursor, err := roomCollection.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data"})
 		return
 	}
 
+	// Menyimpan hasil agregasi
 	var results []bson.M
 	if err := cursor.All(context.TODO(), &results); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
 		return
 	}
 
+	// Mengirim data hasil agregasi ke frontend
 	c.JSON(http.StatusOK, results)
 }
 
