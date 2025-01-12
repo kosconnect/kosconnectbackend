@@ -9,6 +9,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -207,37 +208,37 @@ func CreateRoom(c *gin.Context) {
 }
 
 // GetAllRoom retrieves all rooms for public view
-func GetAllRoom(c *gin.Context) {
-	collection := config.DB.Collection("rooms")
-	var rooms []models.Room
+func GetAllRooms(c *gin.Context) {
+    // Mendapatkan koleksi MongoDB
+    collection := config.DB.Collection("rooms")
 
-	// Query all documents in the rooms collection
-	cursor, err := collection.Find(context.Background(), bson.M{})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms"})
-		return
-	}
-	defer cursor.Close(context.Background())
+    // Query semua kamar
+    cursor, err := collection.Find(context.TODO(), bson.M{})
+    if err != nil {
+        log.Printf("Error fetching rooms from the database: %v", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms from the database"})
+        return
+    }
+    defer cursor.Close(context.TODO())
 
-	// Decode each room document into the Room model
-	for cursor.Next(context.Background()) {
-		var room models.Room
-		if err := cursor.Decode(&room); err != nil {
-			// Log error and return JSON response
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding room"})
-			return
-		}
-		rooms = append(rooms, room)
-	}
+    // Array untuk menyimpan data kamar
+    var rooms []models.Room
 
-	// Check if no rooms were found
-	if len(rooms) == 0 {
-		c.JSON(http.StatusOK, gin.H{"message": "No rooms found", "data": []models.Room{}})
-		return
-	}
+    // Decode hasil query ke dalam array rooms
+    if err := cursor.All(context.TODO(), &rooms); err != nil {
+        log.Printf("Error decoding rooms: %v", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode rooms"})
+        return
+    }
 
-	// Return the list of rooms
-	c.JSON(http.StatusOK, gin.H{"data": rooms})
+    // Log the rooms for debugging
+    log.Printf("Rooms: %+v", rooms)
+
+    // Return semua kamar
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Rooms fetched successfully",
+        "data":    rooms,
+    })
 }
 
 // GetRoomByBoardingHouseID retrieves rooms by boarding house ID
@@ -252,31 +253,12 @@ func GetRoomByBoardingHouseID(c *gin.Context) {
 		return
 	}
 
-	// Ambil user_id dari klaim JWT (jika diperlukan untuk validasi owner)
-	userID := claims["user_id"].(string)
-	userObjectID, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
-		return
-	}
-
 	// Ambil boarding_house_id dari parameter URL
 	boardingHouseID := c.Param("id")
 	boardingHouseObjectID, err := primitive.ObjectIDFromHex(boardingHouseID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid boarding house ID"})
 		return
-	}
-
-	// Jika role adalah "owner", hanya izinkan melihat boarding house miliknya
-	if role == "owner" {
-		boardingHouseCollection := config.DB.Collection("boardinghouses")
-		filter := bson.M{"_id": boardingHouseObjectID, "owner_id": userObjectID}
-		count, err := boardingHouseCollection.CountDocuments(context.Background(), filter)
-		if err != nil || count == 0 {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Boarding house not found or not authorized"})
-			return
-		}
 	}
 
 	// Ambil semua kamar berdasarkan boarding_house_id
@@ -418,17 +400,37 @@ func GetRoomsForLandingPage(c *gin.Context) {
 				{Key: "room_name", Value: "$room_type"},                      // Nama kamar
 				{Key: "boarding_house_name", Value: "$boarding_house.name"},  // Nama kos
 				{Key: "address", Value: "$boarding_house.address"},           // Alamat kos
-				{Key: "price", Value: "$price.monthly"},                      // Harga bulanan
-				{Key: "status", Value: bson.D{ // Hitung Status
-					{Key: "status", Value: bson.D{
-						{Key: "$cond", Value: bson.A{
-							bson.D{{Key: "$gt", Value: bson.A{"$number_available", 0}}},
-							bson.D{{Key: "$concat", Value: bson.A{
-								bson.D{{Key: "$toString", Value: "$number_available"}},
-								" Kamar Tersedia",
+				{Key: "price", Value: bson.D{ // Pilih harga dengan prioritas
+					{Key: "$ifNull", Value: bson.A{
+						"$price.monthly",
+						bson.D{{Key: "$ifNull", Value: bson.A{
+							"$price.quarterly",
+							bson.D{{Key: "$ifNull", Value: bson.A{
+								"$price.semi_annual",
+								"$price.yearly",
 							}}},
-							"Tidak Tersedia",
+						}}},
+					}},
+				}},
+				{Key: "price_type", Value: bson.D{ // Tambahkan tipe harga
+					{Key: "$switch", Value: bson.D{
+						{Key: "branches", Value: bson.A{
+							bson.D{{Key: "case", Value: bson.D{{Key: "$eq", Value: bson.A{"$price", "$price.monthly"}}}}, {Key: "then", Value: "monthly"}},
+							bson.D{{Key: "case", Value: bson.D{{Key: "$eq", Value: bson.A{"$price", "$price.quarterly"}}}}, {Key: "then", Value: "quarterly"}},
+							bson.D{{Key: "case", Value: bson.D{{Key: "$eq", Value: bson.A{"$price", "$price.semi_annual"}}}}, {Key: "then", Value: "semiAnnual"}},
+							bson.D{{Key: "case", Value: bson.D{{Key: "$eq", Value: bson.A{"$price", "$price.yearly"}}}}, {Key: "then", Value: "yearly"}},
 						}},
+						{Key: "default", Value: "unknown"}, // Jika tidak ada yang cocok
+					}},
+				}},
+				{Key: "status", Value: bson.D{ // Hitung Status
+					{Key: "$cond", Value: bson.A{
+						bson.D{{Key: "$gt", Value: bson.A{"$number_available", 0}}},
+						bson.D{{Key: "$concat", Value: bson.A{
+							bson.D{{Key: "$toString", Value: "$number_available"}},
+							" Kamar Tersedia",
+						}}},
+						"Tidak Tersedia",
 					}},
 				}},
 				{Key: "category_name", Value: "$category.name"},          // Nama kategori
@@ -438,8 +440,8 @@ func GetRoomsForLandingPage(c *gin.Context) {
 				}},
 			}},
 		},
-	}
-
+	}	
+	
 	// Menjalankan agregasi
 	cursor, err := roomCollection.Aggregate(context.TODO(), pipeline)
 	if err != nil {

@@ -112,7 +112,7 @@ func RoomRoutes(router *gin.Engine) {
 	api.GET("/:id/detail", controllers.GetRoomDetailByID)
 	api.GET("/home", controllers.GetRoomsForLandingPage)
 	// Public endpoint to get all rooms
-	api.GET("/", controllers.GetAllRoom)
+	api.GET("/", controllers.GetAllRooms)
 
 	// Apply middleware for authorization (if needed)
 	api.Use(middlewares.JWTAuthMiddleware())
