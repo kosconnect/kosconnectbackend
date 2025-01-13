@@ -10,6 +10,7 @@ func AuthRoutes(router *gin.Engine) {
 	authGroup := router.Group("/auth")
 	{
 		authGroup.POST("/register", controllers.Register)
+		authGroup.GET("/verify", controllers.VerifyEmail)
 		authGroup.POST("/login", controllers.Login)
 
 		// Tambahkan routes untuk OAuth Google

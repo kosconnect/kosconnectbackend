@@ -27,6 +27,9 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	// Set up Gin router di dalam handler
 	router := gin.Default()
 
+	// Menyajikan file statis dari folder "public"
+	router.Static("/images", "./public/images")
+	
 	// Apply CORS Middleware
 	router.Use(middlewares.CORSMiddleware())
 

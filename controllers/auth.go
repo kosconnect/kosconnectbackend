@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/organisasi/kosconnectbackend/config"
+	"github.com/organisasi/kosconnectbackend/helper"
 	"github.com/organisasi/kosconnectbackend/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -43,102 +44,204 @@ func generateToken(userID primitive.ObjectID, role string) (string, error) {
 	return token.SignedString(jwtSecret)
 }
 
-// Register handles user registration
+// Register handles user registration SMTP
 func Register(c *gin.Context) {
 	var user models.User
 
-	// Bind JSON input to user model
+	// Validasi input JSON
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
-	// Validate required fields
-	if user.FullName == "" || user.Email == "" || user.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "All fields are required"})
-		return
-	}
-
-	// || user.PhoneNumber == ""
-
-	// Validate phone number format (E.164)
-	// phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
-	// if !phoneRegex.MatchString(user.PhoneNumber) {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phone number format"})
-	// 	return
-	// }
-
-	// Check if email or phone number already exists
+	// Validasi email yang sudah terdaftar
 	collection := config.DB.Collection("users")
-
-	// Check for email existence
-	emailExists := false
-	// phoneNumberExists := false
-
-	// Check if email exists
-	err := collection.FindOne(context.TODO(), bson.M{"email": user.Email}).Decode(&models.User{})
-	if err == nil {
-		emailExists = true
-	}
-
-	// // Check if phone number exists
-	// err = collection.FindOne(context.TODO(), bson.M{"phonenumber": user.PhoneNumber}).Decode(&models.User{})
-	// if err == nil {
-	// 	phoneNumberExists = true
-	// }
-
-	// // Construct error message
-	// if emailExists && phoneNumberExists {
-	// 	c.JSON(http.StatusConflict, gin.H{"error": "Email and phone number already in use"})
-	// 	return
-	// }
+	emailExists := collection.FindOne(context.TODO(), bson.M{"email": user.Email}).Err() == nil
 	if emailExists {
 		c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
 		return
 	}
-	// if phoneNumberExists {
-	// 	c.JSON(http.StatusConflict, gin.H{"error": "Phone number already in use"})
-	// 	return
-	// }
-
-	// Handle database errors other than no document found
-	if err != mongo.ErrNoDocuments {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
 
 	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-		return
-	}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	user.Password = string(hashedPassword)
 
-	// Set default role (if not provided)
-	if user.Role == "" {
-		user.Role = "user" // Default role
-	}
-
-	if len(user.Password) < 6 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 6 characters long"})
-		return
-	}
-
-	// Set user ID dan waktu
+	// Set default values
 	user.UserID = primitive.NewObjectID()
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
+	user.VerifiedEmail = false  // Email belum diverifikasi
+	user.IsRoleAssigned = false // Default untuk role
 
-	// Insert user ke MongoDB
-	_, err = collection.InsertOne(context.TODO(), user)
+	// Generate verification token
+	verifyToken := generateVerificationToken()
+
+	// Menambahkan token verifikasi ke user
+	user.VerificationToken = verifyToken
+
+	// Simpan user ke database
+	_, err := collection.InsertOne(context.TODO(), user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
+	// Kirim email verifikasi
+	verificationLink := "https://kosconnect-server.vercel.app/verify?token=" + verifyToken
+	err = helper.SendVerificationEmail(user.Email, verificationLink, user.FullName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Registration successful. Please check your email to verify your account.",
+	})
 }
+
+// Fungsi untuk membuat token verifikasi unik
+func generateVerificationToken() string {
+	bytes := make([]byte, 32)                       // Membuat byte array dengan panjang 32
+	rand.Read(bytes)                                // Mengisi byte array dengan nilai acak
+	return base64.URLEncoding.EncodeToString(bytes) // Mengubah byte array menjadi string URL-safe
+}
+
+func VerifyEmail(c *gin.Context) {
+	token := c.DefaultQuery("token", "")
+
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token is required"})
+		return
+	}
+
+	// Cari user berdasarkan token verifikasi
+	collection := config.DB.Collection("users")
+	var user models.User
+	err := collection.FindOne(context.TODO(), bson.M{"verification_token": token}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+		return
+	}
+
+	// Update status email pengguna menjadi terverifikasi
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": user.UserID}, bson.M{
+		"$set": bson.M{"verified_email": true},
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user verification"})
+		return
+	}
+
+	// Hapus token verifikasi setelah sukses
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": user.UserID}, bson.M{
+		"$unset": bson.M{"verification_token": ""},
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clean up verification token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Email successfully verified",
+	})
+}
+
+// registe yang sebelumnya:
+// func Register(c *gin.Context) {
+// 	var user models.User
+
+// 	// Bind JSON input to user model
+// 	if err := c.ShouldBindJSON(&user); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+// 		return
+// 	}
+
+// 	// Validate required fields
+// 	if user.FullName == "" || user.Email == "" || user.Password == "" {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "All fields are required"})
+// 		return
+// 	}
+
+// 	// || user.PhoneNumber == ""
+
+// 	// Validate phone number format (E.164)
+// 	// phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
+// 	// if !phoneRegex.MatchString(user.PhoneNumber) {
+// 	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phone number format"})
+// 	// 	return
+// 	// }
+
+// 	// Check if email or phone number already exists
+// 	collection := config.DB.Collection("users")
+
+// 	// Check for email existence
+// 	emailExists := false
+// 	// phoneNumberExists := false
+
+// 	// Check if email exists
+// 	err := collection.FindOne(context.TODO(), bson.M{"email": user.Email}).Decode(&models.User{})
+// 	if err == nil {
+// 		emailExists = true
+// 	}
+
+// 	// // Check if phone number exists
+// 	// err = collection.FindOne(context.TODO(), bson.M{"phonenumber": user.PhoneNumber}).Decode(&models.User{})
+// 	// if err == nil {
+// 	// 	phoneNumberExists = true
+// 	// }
+
+// 	// // Construct error message
+// 	// if emailExists && phoneNumberExists {
+// 	// 	c.JSON(http.StatusConflict, gin.H{"error": "Email and phone number already in use"})
+// 	// 	return
+// 	// }
+// 	if emailExists {
+// 		c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
+// 		return
+// 	}
+// 	// if phoneNumberExists {
+// 	// 	c.JSON(http.StatusConflict, gin.H{"error": "Phone number already in use"})
+// 	// 	return
+// 	// }
+
+// 	// Handle database errors other than no document found
+// 	if err != mongo.ErrNoDocuments {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+// 		return
+// 	}
+
+// 	// Hash password
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+// 		return
+// 	}
+// 	user.Password = string(hashedPassword)
+
+// 	// Set default role (if not provided)
+// 	if user.Role == "" {
+// 		user.Role = "user" // Default role
+// 	}
+
+// 	if len(user.Password) < 6 {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 6 characters long"})
+// 		return
+// 	}
+
+// 	// Set user ID dan waktu
+// 	user.UserID = primitive.NewObjectID()
+// 	user.CreatedAt = time.Now()
+// 	user.UpdatedAt = time.Now()
+
+// 	// Insert user ke MongoDB
+// 	_, err = collection.InsertOne(context.TODO(), user)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
+// }
 
 // Google OAuth Configuration
 var googleOauthConfig = oauth2.Config{
@@ -205,7 +308,7 @@ func HandleGoogleCallback(c *gin.Context) {
 	if err == mongo.ErrNoDocuments {
 		// Create new user
 		newUser := models.User{
-			UserID:            primitive.NewObjectID(),
+			UserID:        primitive.NewObjectID(),
 			FullName:      userInfo.Name,
 			Email:         userInfo.Email,
 			Role:          "", // Role belum ditentukan
