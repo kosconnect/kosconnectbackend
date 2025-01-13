@@ -87,7 +87,7 @@ func Register(c *gin.Context) {
 	}
 
 	// Kirim email verifikasi
-	verificationLink := "https://kosconnect-server.vercel.app/verify?token=" + verifyToken
+	verificationLink := "https://kosconnect-server.vercel.app/auth/verify?token=" + verifyToken
 	err = helper.SendVerificationEmail(user.Email, verificationLink, user.FullName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
