@@ -45,7 +45,7 @@ func SendVerificationEmail(email, verificationLink, fullName string) error {
                 display: inline-block;
                 padding: 10px 20px;
                 color: white;
-                background-color: #007BFF;
+                background-color: #FFBD59;
                 text-decoration: none;
                 border-radius: 5px;
                 font-size: 16px;
