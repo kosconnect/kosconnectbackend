@@ -107,43 +107,34 @@ func generateVerificationToken() string {
 }
 
 func VerifyEmail(c *gin.Context) {
-	token := c.DefaultQuery("token", "")
+    token := c.DefaultQuery("token", "")
 
-	if token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Token is required"})
-		return
-	}
+    if token == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Token is required"})
+        return
+    }
 
-	// Cari user berdasarkan token verifikasi
-	collection := config.DB.Collection("users")
-	var user models.User
-	err := collection.FindOne(context.TODO(), bson.M{"verification_token": token}).Decode(&user)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
-		return
-	}
+    // Cari user berdasarkan token verifikasi
+    collection := config.DB.Collection("users")
+    var user models.User
+    err := collection.FindOne(context.TODO(), bson.M{"verification_token": token}).Decode(&user)
+    if err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+        return
+    }
 
-	// Update status email pengguna menjadi terverifikasi
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": user.UserID}, bson.M{
-		"$set": bson.M{"verified_email": true},
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user verification"})
-		return
-	}
+    // Update status email pengguna menjadi terverifikasi dan hapus token
+    _, err = collection.UpdateOne(context.TODO(), bson.M{"_id": user.UserID}, bson.M{
+        "$set": bson.M{"verified_email": true},
+        "$unset": bson.M{"verification_token": ""},
+    })
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user verification"})
+        return
+    }
 
-	// Hapus token verifikasi setelah sukses
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": user.UserID}, bson.M{
-		"$unset": bson.M{"verification_token": ""},
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clean up verification token"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Email successfully verified",
-	})
+    // Redirect ke halaman login
+    c.Redirect(http.StatusFound, "https://kosconnect.github.io/login?verified=true")
 }
 
 // registe yang sebelumnya:
