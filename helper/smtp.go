@@ -1,16 +1,16 @@
 package helper
 
 import (
-    "net/smtp"
+	"net/smtp"
+	"os"
 	"time"
-
 	// "gopkg.in/gomail.v2"
 	// "fmt"
 )
 
 func SendVerificationEmail(email, verificationLink, fullName string) error {
-    // Template body email
-    body := `
+	// Template body email
+	body := `
     <!DOCTYPE html>
     <html>
     <head>
@@ -79,21 +79,20 @@ func SendVerificationEmail(email, verificationLink, fullName string) error {
     </body>
     </html>
     `
+	// Mengakses variabel environment langsung dari Vercel
+	appPassword := os.Getenv("APP_PASSWORD")
+	// Konfigurasi SMTP
+	auth := smtp.PlainAuth("", "kosconnect2@gmail.com", appPassword, "smtp.gmail.com")
+	to := []string{email}
 
-    // Konfigurasi SMTP
-    auth := smtp.PlainAuth("", "kosconnect2@gmail.com", "email_password", "smtp.gmail.com")
-    to := []string{email}
+	// Header email
+	subject := "Subject: Verifikasi Email Anda di KosConnect\r\n"
+	contentType := "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n"
+	msg := []byte(subject + contentType + "\r\n" + body)
 
-    // Header email
-    subject := "Subject: Verifikasi Email Anda di KosConnect\r\n"
-    contentType := "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n"
-    msg := []byte(subject + contentType + "\r\n" + body)
-
-    // Kirim email
-    return smtp.SendMail("smtp.gmail.com:587", auth, "kosconnect2@gmail.com", to, msg)
+	// Kirim email
+	return smtp.SendMail("smtp.gmail.com:587", auth, "kosconnect2@gmail.com", to, msg)
 }
-
-
 
 // func SendBookingNotification(ownerEmail, boardingHouseName, customerName, bookingDetails string) error {
 // 	mailer := gomail.NewMessage()
