@@ -128,3 +128,33 @@ func RoomRoutes(router *gin.Engine) {
 		api.DELETE("/:id", controllers.DeleteRoom) // Delete room
 	}
 }
+
+func TransactionRoutes(router *gin.Engine) {
+	api := router.Group("/api/transaction")
+	{
+		// Membuat transaksi baru
+		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateTransaction)
+
+		// Mendapatkan semua transaksi (Admin dan Owner)
+		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllTransactions)
+
+		// Mendapatkan detail transaksi berdasarkan ID
+		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetTransactionByID)
+
+		// Mendapatkan transaksi milik pengguna tertentu (User)
+		api.GET("/user/:userID", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByUser)
+
+		// Mendapatkan transaksi milik owner tertentu (Owner)
+		api.GET("/owner/:ownerID", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByOwner)
+
+		// Mendapatkan transaksi berdasarkan status pembayaran (Pending, Paid, etc.)
+		api.GET("/status/:status", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByPaymentStatus)
+
+		// Memperbarui status pembayaran transaksi (misalnya: Paid, Cancelled, dll.)
+		api.PUT("/:id/payment-status", middlewares.JWTAuthMiddleware(), controllers.UpdateTransactionPaymentStatus)
+
+		// Menghapus transaksi (opsional, hanya untuk admin)
+		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteTransaction)
+	}
+}
+

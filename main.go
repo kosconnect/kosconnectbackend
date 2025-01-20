@@ -12,11 +12,13 @@ import (
 	"github.com/organisasi/kosconnectbackend/routes"
 )
 
-func init() {	
+func init() {
 	// Load environment variables digunakan hanya jika akan di run secara local
 	// if err := godotenv.Load(); err != nil {
 	// 	log.Println("No .env file found")
 	// }
+	// Inisialisasi konfigurasi Midtrans
+	config.InitMidtransConfig()
 
 	// Connect to MongoDB
 	config.ConnectDB()
@@ -29,7 +31,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	// Menyajikan file statis dari folder "public"
 	router.Static("/images", "./public/images")
-	
+
 	// Apply CORS Middleware
 	router.Use(middlewares.CORSMiddleware())
 
@@ -41,6 +43,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	routes.BoardingHouse(router)
 	routes.Facility(router)
 	routes.RoomRoutes(router)
+	// Tambahkan di file main.go
+	routes.TransactionRoutes(router)
 
 	// Handle HTTP request
 	router.ServeHTTP(w, r)
