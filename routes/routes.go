@@ -143,15 +143,17 @@ func TransactionRoutes(router *gin.Engine) {
 
 		// Mendapatkan transaksi milik pengguna tertentu (User)
 		api.GET("/user/:userID", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByUser)
+		api.GET("/admin/user/:id", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsUserByAdmin)
 
 		// Mendapatkan transaksi milik owner tertentu (Owner)
 		api.GET("/owner/:ownerID", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByOwner)
+		api.GET("/admin/owner/:id", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsOwnerByAdmin)
 
 		// Mendapatkan transaksi berdasarkan status pembayaran (Pending, Paid, etc.)
 		api.GET("/status/:status", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByPaymentStatus)
 
 		// Memperbarui status pembayaran transaksi (misalnya: Paid, Cancelled, dll.)
-		api.PUT("/:id/payment-status", middlewares.JWTAuthMiddleware(), controllers.UpdateTransactionPaymentStatus)
+		api.PUT("/:id/payment-status", middlewares.JWTAuthMiddleware(), controllers.UpdateTransaction)
 
 		// Menghapus transaksi (opsional, hanya untuk admin)
 		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteTransaction)
