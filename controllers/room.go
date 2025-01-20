@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"path"
 	"strconv"
 	"strings"
-	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -104,6 +104,25 @@ func CreateRoom(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid custom facilities format"})
 		return
 	}
+	collectionCustomFacilities := config.DB.Collection("customFacility")
+	validCustomFacilities := []primitive.ObjectID{}
+
+	for _, facilityID := range customFacilities {
+		// Cek apakah fasilitas ada di database
+		err := collectionCustomFacilities.FindOne(context.TODO(), bson.M{
+			"_id": facilityID,
+		}).Err()
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Custom facility with ID %s is not valid", facilityID.Hex()),
+			})
+			return
+		}
+
+		// Tambahkan ke daftar fasilitas valid
+		validCustomFacilities = append(validCustomFacilities, facilityID)
+	}
 
 	// Process images
 	var roomImageURL []string
@@ -177,7 +196,7 @@ func CreateRoom(c *gin.Context) {
 			Yearly:     priceYearly,
 		},
 		RoomFacilities:   validRoomFacilities, // Menggunakan ID fasilitas langsung
-		CustomFacilities: customFacilities,    // Menggunakan ID fasilitas kustom langsung
+		CustomFacilities: validCustomFacilities,    // Menggunakan ID fasilitas kustom langsung
 		NumberAvailable:  numberAvailable,
 		Status:           status,
 		Images:           roomImageURL,
@@ -209,36 +228,36 @@ func CreateRoom(c *gin.Context) {
 
 // GetAllRoom retrieves all rooms for public view
 func GetAllRooms(c *gin.Context) {
-    // Mendapatkan koleksi MongoDB
-    collection := config.DB.Collection("rooms")
+	// Mendapatkan koleksi MongoDB
+	collection := config.DB.Collection("rooms")
 
-    // Query semua kamar
-    cursor, err := collection.Find(context.TODO(), bson.M{})
-    if err != nil {
-        log.Printf("Error fetching rooms from the database: %v", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms from the database"})
-        return
-    }
-    defer cursor.Close(context.TODO())
+	// Query semua kamar
+	cursor, err := collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		log.Printf("Error fetching rooms from the database: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms from the database"})
+		return
+	}
+	defer cursor.Close(context.TODO())
 
-    // Array untuk menyimpan data kamar
-    var rooms []models.Room
+	// Array untuk menyimpan data kamar
+	var rooms []models.Room
 
-    // Decode hasil query ke dalam array rooms
-    if err := cursor.All(context.TODO(), &rooms); err != nil {
-        log.Printf("Error decoding rooms: %v", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode rooms"})
-        return
-    }
+	// Decode hasil query ke dalam array rooms
+	if err := cursor.All(context.TODO(), &rooms); err != nil {
+		log.Printf("Error decoding rooms: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode rooms"})
+		return
+	}
 
-    // Log the rooms for debugging
-    log.Printf("Rooms: %+v", rooms)
+	// Log the rooms for debugging
+	log.Printf("Rooms: %+v", rooms)
 
-    // Return semua kamar
-    c.JSON(http.StatusOK, gin.H{
-        "message": "Rooms fetched successfully",
-        "data":    rooms,
-    })
+	// Return semua kamar
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Rooms fetched successfully",
+		"data":    rooms,
+	})
 }
 
 // GetRoomByBoardingHouseID retrieves rooms by boarding house ID
@@ -369,37 +388,37 @@ func GetRoomsForLandingPage(c *gin.Context) {
 	pipeline := mongo.Pipeline{
 		{
 			{Key: "$lookup", Value: bson.D{
-				{Key: "from", Value: "boardinghouses"},           // Join dengan koleksi BoardingHouse
-				{Key: "localField", Value: "boarding_house_id"},   // Field referensi dari koleksi Room
-				{Key: "foreignField", Value: "_id"},               // Field referensi di BoardingHouse
-				{Key: "as", Value: "boarding_house"},              // Hasil join disimpan di boarding_house
+				{Key: "from", Value: "boardinghouses"},          // Join dengan koleksi BoardingHouse
+				{Key: "localField", Value: "boarding_house_id"}, // Field referensi dari koleksi Room
+				{Key: "foreignField", Value: "_id"},             // Field referensi di BoardingHouse
+				{Key: "as", Value: "boarding_house"},            // Hasil join disimpan di boarding_house
 			}},
 		},
 		{
 			{Key: "$unwind", Value: bson.D{
-				{Key: "path", Value: "$boarding_house"},         // Unwind array ke objek
+				{Key: "path", Value: "$boarding_house"},          // Unwind array ke objek
 				{Key: "preserveNullAndEmptyArrays", Value: true}, // Pastikan tetap ada meskipun boarding house kosong
 			}},
 		},
 		{
 			{Key: "$lookup", Value: bson.D{
-				{Key: "from", Value: "categories"},                              // Join dengan koleksi Categories
-				{Key: "localField", Value: "boarding_house.category_id"},        // Referensi kategori
+				{Key: "from", Value: "categories"},                       // Join dengan koleksi Categories
+				{Key: "localField", Value: "boarding_house.category_id"}, // Referensi kategori
 				{Key: "foreignField", Value: "_id"},
 				{Key: "as", Value: "category"},
 			}},
 		},
 		{
 			{Key: "$unwind", Value: bson.D{
-				{Key: "path", Value: "$category"},        // Unwind array ke objek
+				{Key: "path", Value: "$category"},                // Unwind array ke objek
 				{Key: "preserveNullAndEmptyArrays", Value: true}, // Pastikan tetap ada meskipun kategori kosong
 			}},
 		},
 		{
 			{Key: "$project", Value: bson.D{
-				{Key: "room_name", Value: "$room_type"},                      // Nama kamar
-				{Key: "boarding_house_name", Value: "$boarding_house.name"},  // Nama kos
-				{Key: "address", Value: "$boarding_house.address"},           // Alamat kos
+				{Key: "room_name", Value: "$room_type"},                     // Nama kamar
+				{Key: "boarding_house_name", Value: "$boarding_house.name"}, // Nama kos
+				{Key: "address", Value: "$boarding_house.address"},          // Alamat kos
 				{Key: "price", Value: bson.D{ // Pilih harga dengan prioritas
 					{Key: "$ifNull", Value: bson.A{
 						"$price.monthly",
@@ -433,15 +452,15 @@ func GetRoomsForLandingPage(c *gin.Context) {
 						"Tidak Tersedia",
 					}},
 				}},
-				{Key: "category_name", Value: "$category.name"},          // Nama kategori
-				{Key: "category_id", Value: "$category._id"},            // ID kategori
+				{Key: "category_name", Value: "$category.name"}, // Nama kategori
+				{Key: "category_id", Value: "$category._id"},    // ID kategori
 				{Key: "images", Value: bson.D{
 					{Key: "$slice", Value: bson.A{"$images", 1}}, // Gambar pertama
 				}},
 			}},
 		},
-	}	
-	
+	}
+
 	// Menjalankan agregasi
 	cursor, err := roomCollection.Aggregate(context.TODO(), pipeline)
 	if err != nil {

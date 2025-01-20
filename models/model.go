@@ -79,39 +79,75 @@ type RoomPrice struct {
 	Yearly     int `bson:"yearly,omitempty" json:"yearly,omitempty"`
 }
 
-// /////////////
-type Booking struct {
-	ID               primitive.ObjectID `json:"id" bson:"_id,omitempty"`                          // ID Booking
-	UserID           primitive.ObjectID `json:"user_id" bson:"user_id"`                           // ID akun yang melakukan checkout
-	UserEmail        string             `json:"user_email,omitempty" bson:"user_email,omitempty"` // Email akun pemesan (opsional)
-	Customer         CustomerInfo       `json:"customer" bson:"customer"`                         // Informasi customer (penghuni kos)
-	BoardingHouseID  primitive.ObjectID `json:"boarding_house_id" bson:"boarding_house_id"`       // ID Kos
-	BoardingHouse    BoardingHouseInfo  `json:"boarding_house" bson:"boarding_house"`             // Informasi Kos (Embedded)
-	BookingItems     []BookingItem      `json:"booking_items" bson:"booking_items"`               // Daftar item yang dipesan
-	BookingDate      time.Time          `json:"booking_date" bson:"booking_date"`                 // Waktu booking
-	Status           string             `json:"status" bson:"status"`                             // Status booking (Pending, Accepted, Rejected)
-	NotificationSent bool               `json:"notification_sent" bson:"notification_sent"`       // Status notifikasi
+// transaksi
+type Transaction struct {
+	TransactionID    primitive.ObjectID   `bson:"_id,omitempty" json:"transaction_id,omitempty"`
+	TransactionCode  string               `bson:"transaction_code,omitempty" json:"transaction_code,omitempty"`
+	UserID           primitive.ObjectID   `bson:"user_id,omitempty" json:"user_id,omitempty"`
+	OwnerID          primitive.ObjectID   `bson:"owner_id,omitempty" json:"owner_id,omitempty"`
+	BoardingHouseID  primitive.ObjectID   `bson:"boarding_house_id,omitempty" json:"boarding_house_id,omitempty"`
+	RoomID           primitive.ObjectID   `bson:"room_id,omitempty" json:"room_id,omitempty"`
+	PersonalInfo     PersonalInfo         `bson:"personal_info,omitempty" json:"personal_info,omitempty"`
+	CustomFacilities []CustomFacilityInfo `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
+	PaymentTerm      string               `bson:"payment_term,omitempty" json:"payment_term,omitempty"`
+	CheckInDate      time.Time            `bson:"check_in_date,omitempty" json:"check_in_date,omitempty"`
+	Price            float64              `bson:"price,omitempty" json:"price,omitempty"`
+	FacilitiesPrice  float64              `bson:"facilities_price,omitempty" json:"facilities_price,omitempty"`
+	PPN              float64              `bson:"ppn,omitempty" json:"ppn,omitempty"`
+	Total            float64              `bson:"total,omitempty" json:"total,omitempty"`
+	PaymentStatus    string               `bson:"payment_status,omitempty" json:"payment_status,omitempty"`
+	PaymentMethod    string               `bson:"payment_method,omitempty" json:"payment_method,omitempty"`
+	CreatedAt        time.Time            `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	UpdatedAt        time.Time            `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
-// Informasi customer (penghuni kos)
-type CustomerInfo struct {
-	FullName string `json:"fullname" bson:"fullname"` // Nama lengkap customer
-	Email    string `json:"email" bson:"email"`       // Email customer
-	Phone    string `json:"phone" bson:"phone"`       // Nomor telepon customer
+type PersonalInfo struct {
+	FullName    string `bson:"full_name,omitempty" json:"full_name,omitempty"`
+	Email       string `bson:"email,omitempty" json:"email,omitempty"`
+	PhoneNumber string `bson:"phone_number,omitempty" json:"phone_number,omitempty"`
+	Address     string `bson:"address,omitempty" json:"address,omitempty"`
+	Gender      string `bson:"gender,omitempty" json:"gender,omitempty"`
 }
 
-type BoardingHouseInfo struct {
-	Name    string             `json:"name" bson:"name"`         // Nama Kos
-	Address string             `json:"address" bson:"address"`   // Alamat Kos
-	OwnerID primitive.ObjectID `json:"owner_id" bson:"owner_id"` // ID Pemilik
+type CustomFacilityInfo struct {
+	CustomFacilityID primitive.ObjectID `bson:"custom_facility_id,omitempty" json:"custom_facility_id,omitempty"`
+	Name             string             `bson:"name,omitempty" json:"name,omitempty"`
+	Price            float64            `bson:"price,omitempty" json:"price,omitempty"`
 }
 
-type BookingItem struct {
-	RoomID           primitive.ObjectID `json:"room_id" bson:"room_id"`                                         // ID Kamar
-	RoomType         string             `json:"room_type" bson:"room_type"`                                     // Jenis Kamar
-	CustomFacilities []CustomFacility   `json:"custom_facilities,omitempty" bson:"custom_facilities,omitempty"` // Fasilitas tambahan
-	NumberOfRooms    int                `json:"number_of_rooms" bson:"number_of_rooms"`                         // Jumlah kamar dipesan
-	SelectedPrice    string             `json:"selected_price" bson:"selected_price"`                           // Pilihan harga (Monthly, Quarterly, etc.)
-	UnitPrice        float64            `json:"unit_price" bson:"unit_price"`                                   // Harga satuan
-	TotalPrice       float64            `json:"total_price" bson:"total_price"`                                 // Harga total untuk item ini
-}
+// // /////////////
+// type Booking struct {
+// 	ID               primitive.ObjectID `json:"id" bson:"_id,omitempty"`                          // ID Booking
+// 	UserID           primitive.ObjectID `json:"user_id" bson:"user_id"`                           // ID akun yang melakukan checkout
+// 	UserEmail        string             `json:"user_email,omitempty" bson:"user_email,omitempty"` // Email akun pemesan (opsional)
+// 	Customer         CustomerInfo       `json:"customer" bson:"customer"`                         // Informasi customer (penghuni kos)
+// 	BoardingHouseID  primitive.ObjectID `json:"boarding_house_id" bson:"boarding_house_id"`       // ID Kos
+// 	BoardingHouse    BoardingHouseInfo  `json:"boarding_house" bson:"boarding_house"`             // Informasi Kos (Embedded)
+// 	BookingItems     []BookingItem      `json:"booking_items" bson:"booking_items"`               // Daftar item yang dipesan
+// 	BookingDate      time.Time          `json:"booking_date" bson:"booking_date"`                 // Waktu booking
+// 	Status           string             `json:"status" bson:"status"`                             // Status booking (Pending, Accepted, Rejected)
+// 	NotificationSent bool               `json:"notification_sent" bson:"notification_sent"`       // Status notifikasi
+// }
+
+// // Informasi customer (penghuni kos)
+// type CustomerInfo struct {
+// 	FullName string `json:"fullname" bson:"fullname"` // Nama lengkap customer
+// 	Email    string `json:"email" bson:"email"`       // Email customer
+// 	Phone    string `json:"phone" bson:"phone"`       // Nomor telepon customer
+// }
+
+// type BoardingHouseInfo struct {
+// 	Name    string             `json:"name" bson:"name"`         // Nama Kos
+// 	Address string             `json:"address" bson:"address"`   // Alamat Kos
+// 	OwnerID primitive.ObjectID `json:"owner_id" bson:"owner_id"` // ID Pemilik
+// }
+
+// type BookingItem struct {
+// 	RoomID           primitive.ObjectID `json:"room_id" bson:"room_id"`                                         // ID Kamar
+// 	RoomType         string             `json:"room_type" bson:"room_type"`                                     // Jenis Kamar
+// 	CustomFacilities []CustomFacility   `json:"custom_facilities,omitempty" bson:"custom_facilities,omitempty"` // Fasilitas tambahan
+// 	NumberOfRooms    int                `json:"number_of_rooms" bson:"number_of_rooms"`                         // Jumlah kamar dipesan
+// 	SelectedPrice    string             `json:"selected_price" bson:"selected_price"`                           // Pilihan harga (Monthly, Quarterly, etc.)
+// 	UnitPrice        float64            `json:"unit_price" bson:"unit_price"`                                   // Harga satuan
+// 	TotalPrice       float64            `json:"total_price" bson:"total_price"`                                 // Harga total untuk item ini
+// }

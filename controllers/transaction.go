@@ -114,7 +114,7 @@ func CreateTransaction(c *gin.Context) {
 
 	// Query fasilitas custom berdasarkan ID
 	var customFacilities []models.CustomFacilityInfo
-	customFacilityCollection := config.DB.Collection("custom_facilities")
+	customFacilityCollection := config.DB.Collection("customFacility")
 
 	for _, customFacilityID := range requestBody.CustomFacilityIDs {
 		cfObjectID, err := primitive.ObjectIDFromHex(customFacilityID)
