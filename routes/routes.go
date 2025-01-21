@@ -98,7 +98,7 @@ func Facility(router *gin.Engine) {
 		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateFacility)
 		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllFacilities)
 		// yg type ini buat get data fasilitas berdasarkan typenya, ada /api/facility/type?type=room dan /api/facility/type?type=boarding_house cara manggilnya
-		api.GET("/type", middlewares.JWTAuthMiddleware(), controllers.GetFacilitiesByType) 
+		api.GET("/type", middlewares.JWTAuthMiddleware(), controllers.GetFacilitiesByType)
 		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetFacilityByID)
 		api.PUT("/:id", middlewares.JWTAuthMiddleware(), controllers.UpdateFacility)
 		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteFacility)
@@ -130,33 +130,41 @@ func RoomRoutes(router *gin.Engine) {
 }
 
 func TransactionRoutes(router *gin.Engine) {
+	// Route untuk callback dari Midtrans (publik)
+	router.POST("/midtrans/notification", controllers.PaymentNotification)
+
+	// Route untuk membuat pembayaran
+	router.POST("/transactions/:transaction_id/payment", controllers.CreatePayment)
+
+	// Grup API dengan prefix /api/transaction
 	api := router.Group("/api/transaction")
+	api.Use(middlewares.JWTAuthMiddleware()) // Semua route dalam grup menggunakan middleware JWT
 	{
 		// Membuat transaksi baru
-		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateTransaction)
+		api.POST("/", controllers.CreateTransaction)
 
 		// Mendapatkan semua transaksi (Admin dan Owner)
-		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllTransactions)
+		api.GET("/", controllers.GetAllTransactions)
 
 		// Mendapatkan detail transaksi berdasarkan ID
-		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetTransactionByID)
+		api.GET("/:id", controllers.GetTransactionByID)
 
 		// Mendapatkan transaksi milik pengguna tertentu (User)
-		api.GET("/user/:userID", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByUser)
-		api.GET("/admin/user/:id", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsUserByAdmin)
+		api.GET("/user/:userID", controllers.GetTransactionsByUser)
+		api.GET("/admin/user/:id", controllers.GetTransactionsUserByAdmin)
 
 		// Mendapatkan transaksi milik owner tertentu (Owner)
-		api.GET("/owner/:ownerID", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByOwner)
-		api.GET("/admin/owner/:id", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsOwnerByAdmin)
+		api.GET("/owner/:ownerID", controllers.GetTransactionsByOwner)
+		api.GET("/admin/owner/:id", controllers.GetTransactionsOwnerByAdmin)
 
 		// Mendapatkan transaksi berdasarkan status pembayaran (Pending, Paid, etc.)
-		api.GET("/status/:status", middlewares.JWTAuthMiddleware(), controllers.GetTransactionsByPaymentStatus)
+		api.GET("/status/:status", controllers.GetTransactionsByPaymentStatus)
 
 		// Memperbarui status pembayaran transaksi (misalnya: Paid, Cancelled, dll.)
-		api.PUT("/:id/payment-status", middlewares.JWTAuthMiddleware(), controllers.UpdateTransaction)
+		api.PUT("/:id/payment-status", controllers.UpdateTransaction)
 
 		// Menghapus transaksi (opsional, hanya untuk admin)
-		api.DELETE("/:id", middlewares.JWTAuthMiddleware(), controllers.DeleteTransaction)
+		api.DELETE("/:id", controllers.DeleteTransaction)
 	}
 }
 
