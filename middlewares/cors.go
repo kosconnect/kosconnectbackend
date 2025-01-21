@@ -15,6 +15,8 @@ func CORSMiddleware() gin.HandlerFunc {
 			"http://localhost:8080",               // Testing dengan localhost
 			"https://accounts.google.com",        // Google OAuth origin
 			"https://kosconnect-server.vercel.app", // Backend utama
+			"http://127.0.0.1:5504", //go live fe
+			"http://127.0.0.1:5500", //alternative go live fe
 		}
 
 		allowed := false
