@@ -115,6 +115,14 @@ type CustomFacilityInfo struct {
 	Price            float64            `bson:"price,omitempty" json:"price,omitempty"`
 }
 
+type PaymentRequest struct {
+	FullName string `json:"full_name" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Phone    string `json:"phone" binding:"required"`
+	Amount   int64  `json:"amount" binding:"required"` // Total pembayaran
+	OrderID  string `json:"order_id" binding:"required"`
+}
+
 // // /////////////
 // type Booking struct {
 // 	ID               primitive.ObjectID `json:"id" bson:"_id,omitempty"`                          // ID Booking

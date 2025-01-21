@@ -2,197 +2,218 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"go.mongodb.org/mongo-driver/bson"
-
-	// "go.mongodb.org/mongo-driver/mongo"
-	// "go.mongodb.org/mongo-driver/mongo/primitive"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/organisasi/kosconnectbackend/config"
 	"github.com/organisasi/kosconnectbackend/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func CreateTransaction(c *gin.Context) {
-    // Ambil query string dari request
-    roomID := c.Query("room_id")
-    boardingHouseID := c.Query("boarding_house_id")
-    ownerID := c.Query("owner_id")
-    userID := c.Query("user_id")
+	// Ambil query string dari request
+	roomID := c.Query("room_id")
+	boardingHouseID := c.Query("boarding_house_id")
+	ownerID := c.Query("owner_id")
+	userID := c.Query("user_id")
 
-    // Validasi input
-    if roomID == "" || boardingHouseID == "" || ownerID == "" || userID == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-        return
-    }
+	// Validasi input
+	if roomID == "" || boardingHouseID == "" || ownerID == "" || userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
+		return
+	}
 
-    // Convert IDs menjadi ObjectID
-    roomObjectID, err := primitive.ObjectIDFromHex(roomID)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
-        return
-    }
-    boardingHouseObjectID, err := primitive.ObjectIDFromHex(boardingHouseID)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid boarding house ID"})
-        return
-    }
-    ownerObjectID, err := primitive.ObjectIDFromHex(ownerID)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
-        return
-    }
-    userObjectID, err := primitive.ObjectIDFromHex(userID)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-        return
-    }
+	// Convert IDs menjadi ObjectID
+	roomObjectID, err := primitive.ObjectIDFromHex(roomID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
+		return
+	}
+	boardingHouseObjectID, err := primitive.ObjectIDFromHex(boardingHouseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid boarding house ID"})
+		return
+	}
+	ownerObjectID, err := primitive.ObjectIDFromHex(ownerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+		return
+	}
+	userObjectID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
 
-    // Ambil data kamar
-    roomCollection := config.DB.Collection("rooms")
-    var room models.Room
-    err = roomCollection.FindOne(context.TODO(), bson.M{"_id": roomObjectID}).Decode(&room)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
-        return
-    }
+	// Ambil data kamar
+	roomCollection := config.DB.Collection("rooms")
+	var room models.Room
+	err = roomCollection.FindOne(context.TODO(), bson.M{"_id": roomObjectID}).Decode(&room)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
 
-    // Ambil data boarding house
-    boardingHouseCollection := config.DB.Collection("boardinghouses")
-    var boardingHouse models.BoardingHouse
-    err = boardingHouseCollection.FindOne(context.TODO(), bson.M{"_id": boardingHouseObjectID}).Decode(&boardingHouse)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Boarding house not found"})
-        return
-    }
+	// Ambil data boarding house
+	boardingHouseCollection := config.DB.Collection("boardinghouses")
+	var boardingHouse models.BoardingHouse
+	err = boardingHouseCollection.FindOne(context.TODO(), bson.M{"_id": boardingHouseObjectID}).Decode(&boardingHouse)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Boarding house not found"})
+		return
+	}
 
-    // Ambil custom facilities dari body request
-    var requestBody struct {
-        CustomFacilityIDs []string          `json:"custom_facilities"`
-        PaymentTerm       string            `json:"payment_term"`
-        CheckInDate       string            `json:"check_in_date"`
-        PersonalInfo      models.PersonalInfo `json:"personal_info"`
-    }
-    if err := c.ShouldBindJSON(&requestBody); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-        return
-    }
+	// Ambil custom facilities dari body request
+	var requestBody struct {
+		CustomFacilityIDs []string            `json:"custom_facilities"`
+		PaymentTerm       string              `json:"payment_term"`
+		CheckInDate       string              `json:"check_in_date"`
+		PersonalInfo      models.PersonalInfo `json:"personal_info"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
 
-    // Validasi payment term
-    paymentTerm := requestBody.PaymentTerm
-    validTerms := []string{"monthly", "quarterly", "semi_annual", "yearly"}
-    isValidTerm := false
-    for _, term := range validTerms {
-        if paymentTerm == term {
-            isValidTerm = true
-            break
-        }
-    }
-    if !isValidTerm {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment term"})
-        return
-    }
+	// Validasi payment term
+	paymentTerm := requestBody.PaymentTerm
+	validTerms := []string{"monthly", "quarterly", "semi_annual", "yearly"}
+	isValidTerm := false
+	for _, term := range validTerms {
+		if paymentTerm == term {
+			isValidTerm = true
+			break
+		}
+	}
+	if !isValidTerm {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment term"})
+		return
+	}
 
-    // Validasi tanggal check-in
-    checkInDate, err := time.Parse("2006-01-02", requestBody.CheckInDate)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid check-in date format"})
-        return
-    }
+	// Validasi tanggal check-in
+	checkInDate, err := time.Parse("2006-01-02", requestBody.CheckInDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid check-in date format"})
+		return
+	}
 
-    // Query fasilitas custom berdasarkan ID
-    var customFacilities []models.CustomFacilityInfo
-    customFacilityCollection := config.DB.Collection("customFacility")
+	// Query fasilitas custom berdasarkan ID
+	var customFacilities []models.CustomFacilityInfo
+	customFacilityCollection := config.DB.Collection("customFacility")
 
-    for _, customFacilityID := range requestBody.CustomFacilityIDs {
-        cfObjectID, err := primitive.ObjectIDFromHex(customFacilityID)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid custom facility ID"})
-            return
-        }
+	for _, customFacilityID := range requestBody.CustomFacilityIDs {
+		cfObjectID, err := primitive.ObjectIDFromHex(customFacilityID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid custom facility ID"})
+			return
+		}
 
-        var customFacility models.CustomFacility
-        err = customFacilityCollection.FindOne(context.TODO(), bson.M{"_id": cfObjectID}).Decode(&customFacility)
-        if err != nil {
-            c.JSON(http.StatusNotFound, gin.H{"error": "Custom facility not found"})
-            return
-        }
+		var customFacility models.CustomFacility
+		err = customFacilityCollection.FindOne(context.TODO(), bson.M{"_id": cfObjectID}).Decode(&customFacility)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Custom facility not found"})
+			return
+		}
 
-        customFacilities = append(customFacilities, models.CustomFacilityInfo{
-            CustomFacilityID: customFacility.CustomFacilityID,
-            Name:             customFacility.Name,
-            Price:            customFacility.Price,
-        })
-    }
+		customFacilities = append(customFacilities, models.CustomFacilityInfo{
+			CustomFacilityID: customFacility.CustomFacilityID,
+			Name:             customFacility.Name,
+			Price:            customFacility.Price,
+		})
+	}
 
-    // Hitung total harga custom facilities
-    var facilitiesPrice float64
-    for _, cf := range customFacilities {
-        facilitiesPrice += cf.Price
-    }
+	// Hitung total harga custom facilities
+	var facilitiesPrice float64
+	for _, cf := range customFacilities {
+		facilitiesPrice += cf.Price
+	}
 
-    // Hitung harga kamar berdasarkan payment term
-    var roomPrice float64
-    switch paymentTerm {
-    case "monthly":
-        roomPrice = float64(room.Price.Monthly)
-    case "quarterly":
-        roomPrice = float64(room.Price.Quarterly)
-    case "semi_annual":
-        roomPrice = float64(room.Price.SemiAnnual)
-    case "yearly":
-        roomPrice = float64(room.Price.Yearly)
-    }
+	// Hitung harga kamar berdasarkan payment term
+	var roomPrice float64
+	switch paymentTerm {
+	case "monthly":
+		roomPrice = float64(room.Price.Monthly)
+	case "quarterly":
+		roomPrice = float64(room.Price.Quarterly)
+	case "semi_annual":
+		roomPrice = float64(room.Price.SemiAnnual)
+	case "yearly":
+		roomPrice = float64(room.Price.Yearly)
+	}
 
-    // Hitung total transaksi
-    ppn := (roomPrice + facilitiesPrice) * 0.11 // PPN 11%
-    total := roomPrice + facilitiesPrice + ppn
+	// Hitung total transaksi
+	ppn := (roomPrice + facilitiesPrice) * 0.11 // PPN 11%
+	total := roomPrice + facilitiesPrice + ppn
 
-    // Buat transaction code dengan format KCT-P-TahunBulanTanggal-JamMenit-Urutan
-    currentTime := time.Now()
-    formattedDate := currentTime.Format("20060102-1504") // TahunBulanTanggal-JamMenit
-    transactionCode := fmt.Sprintf("KCT%s%s", formattedDate, primitive.NewObjectID().Hex()[20:])
+	// Buat transaction code dengan format KCT-P-TahunBulanTanggal-JamMenit-Urutan
+	currentTime := time.Now()
+	formattedDate := currentTime.Format("20060102-1504") // TahunBulanTanggal-JamMenit
+	transactionCode := fmt.Sprintf("KCT%s%s", formattedDate, primitive.NewObjectID().Hex()[20:])
 
-    // Buat data transaksi
-    transaction := models.Transaction{
-        TransactionID:   primitive.NewObjectID(),
-        TransactionCode: transactionCode,
-        UserID:          userObjectID,
-        OwnerID:         ownerObjectID,
-        BoardingHouseID: boardingHouseObjectID,
-        RoomID:          roomObjectID,
-        PersonalInfo:    requestBody.PersonalInfo,
-        CustomFacilities: customFacilities,
-        PaymentTerm:      paymentTerm,
-        CheckInDate:      checkInDate,
-        Price:            roomPrice,
-        FacilitiesPrice:  facilitiesPrice,
-        PPN:              ppn,
-        Total:            total,
-        PaymentStatus:    "pending",
-        PaymentMethod:    "",
-        CreatedAt:        currentTime,
-        UpdatedAt:        currentTime,
-    }
+	// Buat data transaksi
+	transaction := models.Transaction{
+		TransactionID:    primitive.NewObjectID(),
+		TransactionCode:  transactionCode,
+		UserID:           userObjectID,
+		OwnerID:          ownerObjectID,
+		BoardingHouseID:  boardingHouseObjectID,
+		RoomID:           roomObjectID,
+		PersonalInfo:     requestBody.PersonalInfo,
+		CustomFacilities: customFacilities,
+		PaymentTerm:      paymentTerm,
+		CheckInDate:      checkInDate,
+		Price:            roomPrice,
+		FacilitiesPrice:  facilitiesPrice,
+		PPN:              ppn,
+		Total:            total,
+		PaymentStatus:    "pending",
+		PaymentMethod:    "",
+		CreatedAt:        currentTime,
+		UpdatedAt:        currentTime,
+	}
 
-    // Simpan transaksi ke database
-    transactionCollection := config.DB.Collection("transactions")
-    _, err = transactionCollection.InsertOne(context.TODO(), transaction)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction"})
-        return
-    }
+	// Simpan transaksi ke database
+	transactionCollection := config.DB.Collection("transactions")
+	_, err = transactionCollection.InsertOne(context.TODO(), transaction)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction"})
+		return
+	}
 
-    // Kirim response sukses
-    c.JSON(http.StatusOK, gin.H{
-        "message":        "Transaction created successfully",
-        "transaction_id": transaction.TransactionID,
-    })
+	// // Panggil fungsi CreatePayment untuk mendapatkan redirectURL dari Midtrans
+	// snapReq := &snap.Request{
+	// 	TransactionDetails: midtrans.TransactionDetails{
+	// 		OrderID:  transaction.TransactionCode,
+	// 		GrossAmt: int64(transaction.Total),
+	// 	},
+	// 	CustomerDetail: &midtrans.CustomerDetails{
+	// 		FName: requestBody.PersonalInfo.FullName,
+	// 		Email: requestBody.PersonalInfo.Email,
+	// 		Phone: requestBody.PersonalInfo.PhoneNumber,
+	// 	},
+	// }
+
+	// snapResp, err := config.SnapClient.CreateTransaction(snapReq)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment: " + err.Error()})
+	// 	return
+	// }
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Transaction created successfully",
+		"transaction_id": transaction.TransactionID,
+		// "redirectURL":    snapResp.RedirectURL,
+		"details": gin.H{
+			"room_price":       roomPrice,
+			"facilities_price": facilitiesPrice,
+			"ppn":              ppn,
+			"total":            total,
+		},
+	})
 }
 
 // dipakai oleh admin dan owner
@@ -337,48 +358,48 @@ func GetTransactionsByOwner(c *gin.Context) {
 // DIBAWAH INI CODE UNTUK AMBIL DATA TRANSAKSI PUNYA USER DAN OWNER OLEH ADMIN
 // Ambil transaksi berdasarkan owner ID
 func GetTransactionsOwnerByAdmin(c *gin.Context) {
-    getTransactionsByField(c, "owner_id")
+	getTransactionsByField(c, "owner_id")
 }
 
 // Ambil transaksi berdasarkan user ID
 func GetTransactionsUserByAdmin(c *gin.Context) {
-    getTransactionsByField(c, "user_id")
+	getTransactionsByField(c, "user_id")
 }
 
 // Fungsi generik untuk mengambil transaksi berdasarkan field tertentu
 func getTransactionsByField(c *gin.Context, field string) {
-    id := c.Param("id")
+	id := c.Param("id")
 
-    objectID, err := primitive.ObjectIDFromHex(id)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-        return
-    }
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
 
-    collection := config.DB.Collection("transactions")
+	collection := config.DB.Collection("transactions")
 
-    cursor, err := collection.Find(context.TODO(), bson.M{field: objectID})
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
-        return
-    }
-    defer cursor.Close(context.TODO())
+	cursor, err := collection.Find(context.TODO(), bson.M{field: objectID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
+		return
+	}
+	defer cursor.Close(context.TODO())
 
-    var transactions []models.Transaction
-    if err = cursor.All(context.TODO(), &transactions); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse transactions"})
-        return
-    }
+	var transactions []models.Transaction
+	if err = cursor.All(context.TODO(), &transactions); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse transactions"})
+		return
+	}
 
-    if len(transactions) == 0 {
-        c.JSON(http.StatusNotFound, gin.H{"error": "No transactions found"})
-        return
-    }
+	if len(transactions) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No transactions found"})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "message": "Transactions fetched successfully",
-        "data":    transactions,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Transactions fetched successfully",
+		"data":    transactions,
+	})
 }
 
 // untuk dapatkan transaksi berdasarkan status
@@ -409,91 +430,91 @@ func GetTransactionsByPaymentStatus(c *gin.Context) {
 
 // UPDATE STATUS DOANG
 func UpdateTransaction(c *gin.Context) {
-    // Ambil transaction ID dari parameter URL
-    transactionID := c.Param("transaction_id")
+	// Ambil transaction ID dari parameter URL
+	transactionID := c.Param("transaction_id")
 
-    // Validasi transaction ID
-    transactionObjectID, err := primitive.ObjectIDFromHex(transactionID)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction ID"})
-        return
-    }
+	// Validasi transaction ID
+	transactionObjectID, err := primitive.ObjectIDFromHex(transactionID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction ID"})
+		return
+	}
 
-    // Ambil data dari body request
-    var requestBody struct {
-        PaymentMethod string `json:"payment_method"`
-        PaymentStatus string `json:"payment_status"`
-    }
-    if err := c.ShouldBindJSON(&requestBody); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-        return
-    }
+	// Ambil data dari body request
+	var requestBody struct {
+		PaymentMethod string `json:"payment_method"`
+		PaymentStatus string `json:"payment_status"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
 
-    // Validasi payment status
-    validStatuses := []string{"pending", "paid", "failed", "cancelled"}
-    isValidStatus := false
-    for _, status := range validStatuses {
-        if requestBody.PaymentStatus == status {
-            isValidStatus = true
-            break
-        }
-    }
-    if !isValidStatus {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment status"})
-        return
-    }
+	// Validasi payment status
+	validStatuses := []string{"pending", "paid", "failed", "cancelled"}
+	isValidStatus := false
+	for _, status := range validStatuses {
+		if requestBody.PaymentStatus == status {
+			isValidStatus = true
+			break
+		}
+	}
+	if !isValidStatus {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment status"})
+		return
+	}
 
-    // Validasi payment method jika disediakan
-    if requestBody.PaymentMethod != "" {
-        validMethods := []string{"credit_card", "bank_transfer", "ewallet", "cash"}
-        isValidMethod := false
-        for _, method := range validMethods {
-            if requestBody.PaymentMethod == method {
-                isValidMethod = true
-                break
-            }
-        }
-        if !isValidMethod {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
-            return
-        }
-    }
+	// Validasi payment method jika disediakan
+	if requestBody.PaymentMethod != "" {
+		validMethods := []string{"credit_card", "bank_transfer", "ewallet", "cash"}
+		isValidMethod := false
+		for _, method := range validMethods {
+			if requestBody.PaymentMethod == method {
+				isValidMethod = true
+				break
+			}
+		}
+		if !isValidMethod {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
+			return
+		}
+	}
 
-    // Ambil koleksi transaksi
-    transactionCollection := config.DB.Collection("transactions")
+	// Ambil koleksi transaksi
+	transactionCollection := config.DB.Collection("transactions")
 
-    // Cari transaksi berdasarkan ID
-    var transaction models.Transaction
-    err = transactionCollection.FindOne(context.TODO(), bson.M{"_id": transactionObjectID}).Decode(&transaction)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
-        return
-    }
+	// Cari transaksi berdasarkan ID
+	var transaction models.Transaction
+	err = transactionCollection.FindOne(context.TODO(), bson.M{"_id": transactionObjectID}).Decode(&transaction)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+		return
+	}
 
-    // Update data transaksi
-    updateFields := bson.M{
-        "payment_status": requestBody.PaymentStatus,
-        "updated_at":    time.Now(),
-    }
-    if requestBody.PaymentMethod != "" {
-        updateFields["payment_method"] = requestBody.PaymentMethod
-    }
+	// Update data transaksi
+	updateFields := bson.M{
+		"payment_status": requestBody.PaymentStatus,
+		"updated_at":     time.Now(),
+	}
+	if requestBody.PaymentMethod != "" {
+		updateFields["payment_method"] = requestBody.PaymentMethod
+	}
 
-    _, err = transactionCollection.UpdateOne(
-        context.TODO(),
-        bson.M{"_id": transactionObjectID},
-        bson.M{"$set": updateFields},
-    )
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
-        return
-    }
+	_, err = transactionCollection.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": transactionObjectID},
+		bson.M{"$set": updateFields},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
+		return
+	}
 
-    // Kirim response sukses
-    c.JSON(http.StatusOK, gin.H{
-        "message":        "Transaction updated successfully",
-        "transaction_id": transactionID,
-    })
+	// Kirim response sukses
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Transaction updated successfully",
+		"transaction_id": transactionID,
+	})
 }
 
 // DELETE TRANSACTION (ONLY ADMIN)
