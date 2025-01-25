@@ -416,8 +416,9 @@ func GetRoomsForLandingPage(c *gin.Context) {
 		},
 		{
 			{Key: "$project", Value: bson.D{
-				{Key: "room_name", Value: "$room_type"},                     // Nama kamar
-				{Key: "boarding_house_name", Value: "$boarding_house.name"}, // Nama kos
+				{Key: "room_name", Value: bson.D{
+					{Key: "$concat", Value: bson.A{"$boarding_house.name", " Tipe ", "$room_type"}},
+				}}, // Nama kamar gabungan
 				{Key: "address", Value: "$boarding_house.address"},          // Alamat kos
 				{Key: "price", Value: bson.D{
 					{Key: "$cond", Value: bson.D{
@@ -446,6 +447,11 @@ func GetRoomsForLandingPage(c *gin.Context) {
 						}},
 					}},
 				}},
+				{Key: "category_name", Value: "$category.name"}, // Nama kategori
+				{Key: "category_id", Value: "$category._id"},    // ID kategori
+				{Key: "images", Value: bson.D{
+					{Key: "$slice", Value: bson.A{"$images", 1}}, // Gambar pertama
+				}},
 				{Key: "status", Value: bson.D{ // Hitung Status
 					{Key: "$cond", Value: bson.A{
 						bson.D{{Key: "$gt", Value: bson.A{"$number_available", 0}}},
@@ -455,11 +461,6 @@ func GetRoomsForLandingPage(c *gin.Context) {
 						}}},
 						"Tidak Tersedia",
 					}},
-				}},
-				{Key: "category_name", Value: "$category.name"}, // Nama kategori
-				{Key: "category_id", Value: "$category._id"},    // ID kategori
-				{Key: "images", Value: bson.D{
-					{Key: "$slice", Value: bson.A{"$images", 1}}, // Gambar pertama
 				}},
 				{Key: "owner_id", Value: "$boarding_house.owner_id"},
 			}},
