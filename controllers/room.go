@@ -419,27 +419,31 @@ func GetRoomsForLandingPage(c *gin.Context) {
 				{Key: "room_name", Value: "$room_type"},                     // Nama kamar
 				{Key: "boarding_house_name", Value: "$boarding_house.name"}, // Nama kos
 				{Key: "address", Value: "$boarding_house.address"},          // Alamat kos
-				{Key: "price", Value: bson.D{ // Pilih harga dengan prioritas
-					{Key: "$ifNull", Value: bson.A{
-						"$price.monthly",
-						bson.D{{Key: "$ifNull", Value: bson.A{
-							"$price.quarterly",
-							bson.D{{Key: "$ifNull", Value: bson.A{
-								"$price.semi_annual",
-								"$price.yearly",
-							}}},
-						}}},
-					}},
-				}},
-				{Key: "price_type", Value: bson.D{ // Tambahkan tipe harga
-					{Key: "$switch", Value: bson.D{
-						{Key: "branches", Value: bson.A{
-							bson.D{{Key: "case", Value: bson.D{{Key: "$eq", Value: bson.A{"$price", "$price.monthly"}}}}, {Key: "then", Value: "monthly"}},
-							bson.D{{Key: "case", Value: bson.D{{Key: "$eq", Value: bson.A{"$price", "$price.quarterly"}}}}, {Key: "then", Value: "quarterly"}},
-							bson.D{{Key: "case", Value: bson.D{{Key: "$eq", Value: bson.A{"$price", "$price.semi_annual"}}}}, {Key: "then", Value: "semiAnnual"}},
-							bson.D{{Key: "case", Value: bson.D{{Key: "$eq", Value: bson.A{"$price", "$price.yearly"}}}}, {Key: "then", Value: "yearly"}},
+				{Key: "price", Value: bson.D{
+					{Key: "$cond", Value: bson.D{
+						{Key: "if", Value: bson.D{{Key: "$gt", Value: bson.A{"$price.quarterly", nil}}}},
+						{Key: "then", Value: bson.D{
+							{Key: "quarterly", Value: "$price.quarterly"},
 						}},
-						{Key: "default", Value: "unknown"}, // Jika tidak ada yang cocok
+						{Key: "else", Value: bson.D{
+							{Key: "$cond", Value: bson.D{
+								{Key: "if", Value: bson.D{{Key: "$gt", Value: bson.A{"$price.monthly", nil}}}},
+								{Key: "then", Value: bson.D{
+									{Key: "monthly", Value: "$price.monthly"},
+								}},
+								{Key: "else", Value: bson.D{
+									{Key: "$cond", Value: bson.D{
+										{Key: "if", Value: bson.D{{Key: "$gt", Value: bson.A{"$price.semi_annual", nil}}}},
+										{Key: "then", Value: bson.D{
+											{Key: "semi_annual", Value: "$price.semi_annual"},
+										}},
+										{Key: "else", Value: bson.D{
+											{Key: "yearly", Value: "$price.yearly"},
+										}},
+									}},
+								}},
+							}},
+						}},
 					}},
 				}},
 				{Key: "status", Value: bson.D{ // Hitung Status
@@ -457,6 +461,7 @@ func GetRoomsForLandingPage(c *gin.Context) {
 				{Key: "images", Value: bson.D{
 					{Key: "$slice", Value: bson.A{"$images", 1}}, // Gambar pertama
 				}},
+				{Key: "owner_id", Value: "$boarding_house.owner_id"},
 			}},
 		},
 	}
