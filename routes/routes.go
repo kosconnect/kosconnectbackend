@@ -27,6 +27,7 @@ func UserRoutes(router *gin.Engine) {
 		api.POST("/", middlewares.JWTAuthMiddleware(), controllers.CreateUser)                     // Admin creates a user
 		api.GET("/", middlewares.JWTAuthMiddleware(), controllers.GetAllUsers)                     // Admin views all users
 		api.GET("/owner", middlewares.JWTAuthMiddleware(), controllers.GetAllOwners)               // ambil semua data owner
+		api.GET("/:id/owner", middlewares.JWTAuthMiddleware(), controllers.GetOwnerByID)               // ambil semua data owner
 		api.GET("/me", middlewares.JWTAuthMiddleware(), controllers.GetMyAccount)                  // Logged-in user views their own account
 		api.GET("/:id", middlewares.JWTAuthMiddleware(), controllers.GetUserByID)                  // Get user by ID
 		api.PUT("/me", middlewares.JWTAuthMiddleware(), controllers.UpdateMe)                      // Update user details for user yg login
@@ -111,7 +112,8 @@ func RoomRoutes(router *gin.Engine) {
 	api := router.Group("/api/rooms")
 	// Public endpoint to get room by ID
 
-	api.GET("/:id/detail", controllers.GetRoomDetailByID)
+	api.GET("/:id/detail", controllers.GetRoomDetailsByID)
+	api.GET("/:id/pages", controllers.GetRoomDetailPages)
 	api.GET("/home", controllers.GetRoomsForLandingPage)
 	// Public endpoint to get all rooms
 	api.GET("/", controllers.GetAllRooms)

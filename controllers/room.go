@@ -324,7 +324,107 @@ func GetRoomByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": room})
 }
 
-func GetRoomDetailByID(c *gin.Context) {
+func GetRoomDetailsByID(c *gin.Context) {
+	roomID := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(roomID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
+		return
+	}
+
+	roomCollection := config.DB.Collection("rooms")
+
+	// Pipeline untuk agregasi
+	pipeline := mongo.Pipeline{
+		{
+			{Key: "$match", Value: bson.D{{Key: "_id", Value: objectID}}}, // Match the room by ID
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "boardinghouses"},
+				{Key: "localField", Value: "boarding_house_id"},
+				{Key: "foreignField", Value: "_id"},
+				{Key: "as", Value: "boarding_house"},
+			}}, // Join with boardinghouses collection
+		},
+		{
+			{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$boarding_house"}}}, // Unwind the boarding house array
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "users"},
+				{Key: "localField", Value: "boarding_house.owner_id"},
+				{Key: "foreignField", Value: "_id"},
+				{Key: "as", Value: "owner"},
+			}}, // Join with users collection to get owner details
+		},
+		{
+			{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$owner"}}}, // Unwind the owner array
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "facilities"},
+				{Key: "localField", Value: "room_facilities"},
+				{Key: "foreignField", Value: "_id"},
+				{Key: "as", Value: "room_facilities_details"},
+			}}, // Join with facilities collection
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "customFacility"},
+				{Key: "localField", Value: "custom_facilities"},
+				{Key: "foreignField", Value: "_id"},
+				{Key: "as", Value: "custom_facility_details"},
+			}}, // Join with customFacility collection
+		},
+		{
+			{Key: "$project", Value: bson.D{
+				{Key: "room_id", Value: "$_id"},
+				{Key: "boarding_house_name", Value: "$boarding_house.name"}, // Include boarding house name
+				{Key: "owner_name", Value: "$owner.fullname"},               // Include owner name
+				{Key: "room_facilities", Value: "$room_facilities_details.name"}, // Include room facility names
+				{Key: "custom_facility_details", Value: bson.D{
+					{Key: "$map", Value: bson.D{
+						{Key: "input", Value: "$custom_facility_details"},
+						{Key: "as", Value: "facility"},
+						{Key: "in", Value: bson.D{
+							{Key: "name", Value: "$$facility.name"},   // Include name
+							{Key: "price", Value: "$$facility.price"}, // Include price
+						}}}},
+				}},
+			}},
+		},
+	}
+
+	// Eksekusi pipeline
+	cursor, err := roomCollection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data"})
+		log.Printf("Error during aggregation: %v", err)
+		return
+	}
+
+	// Decode hasil query
+	var roomDetails []bson.M
+	if err := cursor.All(context.TODO(), &roomDetails); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
+		log.Printf("Error decoding cursor: %v", err)
+		return
+	}
+
+	// Log hasil custom_facility_details untuk debug
+	if len(roomDetails) > 0 {
+		log.Printf("Custom Facility Details: %v", roomDetails[0]["custom_facility_details"])
+	} else {
+		log.Printf("No room details found for room ID: %s", roomID)
+	}
+
+
+	// Kirimkan response JSON
+	c.JSON(http.StatusOK, roomDetails)
+}
+
+func GetRoomDetailPages(c *gin.Context) {
 	roomID := c.Param("id")
 	objectID, err := primitive.ObjectIDFromHex(roomID)
 	if err != nil {

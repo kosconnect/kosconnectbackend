@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/organisasi/kosconnectbackend/config"
 	"github.com/organisasi/kosconnectbackend/models"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
@@ -135,7 +136,7 @@ func GetUserByID(c *gin.Context) {
     c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-// Get All Owners (Admin can use this to choose an owner)
+//Get All Owners (Admin can use this to choose an owner)
 func GetAllOwners(c *gin.Context) {
     collection := config.DB.Collection("users")
     var owners []models.User
@@ -158,6 +159,36 @@ func GetAllOwners(c *gin.Context) {
 
     // Return only the email and _id (ownerID) to frontend
     c.JSON(http.StatusOK, owners)
+}
+
+// Get Owner by ID (Admin can use this to view owner details)
+func GetOwnerByID(c *gin.Context) {
+    ownerID := c.Param("id")
+    objectID, err := primitive.ObjectIDFromHex(ownerID)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+        return
+    }
+
+    collection := config.DB.Collection("users")
+    var owner models.User
+
+    // Fetch the owner data by ID and filter to include only name and _id
+    err = collection.FindOne(context.TODO(), bson.M{"_id": objectID, "role": "owner"}).Decode(&owner)
+    if err != nil {
+        if err == mongo.ErrNoDocuments {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Owner not found"})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch owner"})
+        }
+        return
+    }
+
+    // Return only the _id and fullname of the owner
+    c.JSON(http.StatusOK, gin.H{
+        "owner_id":   owner.UserID,
+        "owner_name": owner.FullName,
+    })
 }
 
 // Update user (for the logged-in user or admin)
