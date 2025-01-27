@@ -81,18 +81,20 @@ func PaymentNotification(c *gin.Context) {
 		return
 	}
 
-	// Ambil OrderID dan Status dari payload
+	// Ambil OrderID, Status, dan Payment Method dari payload
 	orderID, ok := notificationPayload["order_id"].(string)
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID format"})
 		return
 	}
 	transactionStatus := notificationPayload["transaction_status"].(string)
+	paymentMethod := notificationPayload["payment_type"].(string) // Menambahkan payment_type
 
 	// Update status pembayaran di database berdasarkan status
 	transactionCollection := config.DB.Collection("transactions")
 	updateFields := bson.M{
 		"payment_status": transactionStatus,
+		"payment_method": paymentMethod,  // Menambahkan payment_method
 		"updated_at":     time.Now(),
 	}
 

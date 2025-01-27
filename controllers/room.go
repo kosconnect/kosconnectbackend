@@ -334,7 +334,7 @@ func GetRoomDetailByID(c *gin.Context) {
 
 	roomCollection := config.DB.Collection("rooms")
 
-	// Pipeline untuk menggabungkan data dan gambar
+	// Pipeline untuk menggabungkan data dan gambar, termasuk owner dan kategori
 	pipeline := mongo.Pipeline{
 		{
 			{Key: "$match", Value: bson.D{
@@ -355,9 +355,40 @@ func GetRoomDetailByID(c *gin.Context) {
 			}},
 		},
 		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "users"},              // Gabungkan dengan koleksi Users untuk mendapatkan Owner
+				{Key: "localField", Value: "boarding_house.owner_id"}, // Field referensi dari koleksi BoardingHouse
+				{Key: "foreignField", Value: "_id"},       // Field referensi di koleksi Users (Owner)
+				{Key: "as", Value: "owner"},               // Hasil join disimpan dalam field owner
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$owner"}, // Unwind untuk mengubah array menjadi objek
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "categories"},            // Gabungkan dengan koleksi Categories untuk mendapatkan kategori
+				{Key: "localField", Value: "boarding_house.category_id"}, // Field referensi dari boarding_house
+				{Key: "foreignField", Value: "_id"},           // Field referensi di koleksi Categories
+				{Key: "as", Value: "category"},                // Hasil join disimpan dalam field category
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$category"}, // Unwind untuk mengubah array menjadi objek
+			}},
+		},
+		{
 			{Key: "$addFields", Value: bson.D{
 				{Key: "all_images", Value: bson.D{
 					{Key: "$concatArrays", Value: bson.A{"$images", "$boarding_house.images"}}, // Gabungkan gambar
+				}},
+				{Key: "owner_fullname", Value: "$owner.fullname"}, // Tambahkan fullname dari owner
+				{Key: "category_name", Value: "$category.name"},   // Tambahkan nama kategori
+				{Key: "room_name", Value: bson.D{
+					{Key: "$concat", Value: bson.A{"$boarding_house.name", " Tipe ", "$room_type"}}, // Gabungkan nama kos dan tipe kamar
 				}},
 			}},
 		},

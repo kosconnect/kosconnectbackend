@@ -150,11 +150,11 @@ func TransactionRoutes(router *gin.Engine) {
 		api.GET("/:id", controllers.GetTransactionByID)
 
 		// Mendapatkan transaksi milik pengguna tertentu (User)
-		api.GET("/user/:userID", controllers.GetTransactionsByUser)
+		api.GET("/user", controllers.GetTransactionsByUser)
 		api.GET("/admin/user/:id", controllers.GetTransactionsUserByAdmin)
 
 		// Mendapatkan transaksi milik owner tertentu (Owner)
-		api.GET("/owner/:ownerID", controllers.GetTransactionsByOwner)
+		api.GET("/owner", controllers.GetTransactionsByOwner)
 		api.GET("/admin/owner/:id", controllers.GetTransactionsOwnerByAdmin)
 
 		// Mendapatkan transaksi berdasarkan status pembayaran (Pending, Paid, etc.)

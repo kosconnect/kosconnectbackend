@@ -146,14 +146,14 @@ func CreateTransaction(c *gin.Context) {
 	}
 
 	// Hitung total transaksi
-	ppn := (roomPrice + facilitiesPrice) * 0.11 // PPN 11%
-	total := roomPrice + facilitiesPrice + ppn
+	subtotal := (roomPrice + facilitiesPrice)
+	ppn := subtotal * 0.11 // PPN 11%
+	total := subtotal + ppn
 
 	// Buat transaction code dengan format KCT-P-TahunBulanTanggal-JamMenit-Urutan
 	currentTime := time.Now()
-	formattedDate := currentTime.Format("20060102-1504") // TahunBulanTanggal-JamMenit
+	formattedDate := currentTime.Format("060102")
 	transactionCode := fmt.Sprintf("KCT%s%s", formattedDate, primitive.NewObjectID().Hex()[20:])
-
 	// Buat data transaksi
 	transaction := models.Transaction{
 		TransactionID:    primitive.NewObjectID(),
@@ -168,6 +168,7 @@ func CreateTransaction(c *gin.Context) {
 		CheckInDate:      checkInDate,
 		Price:            roomPrice,
 		FacilitiesPrice:  facilitiesPrice,
+		Subtotal:         subtotal,
 		PPN:              ppn,
 		Total:            total,
 		PaymentStatus:    "pending",

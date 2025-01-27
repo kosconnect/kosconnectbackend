@@ -93,6 +93,7 @@ type Transaction struct {
 	CheckInDate      time.Time            `bson:"check_in_date,omitempty" json:"check_in_date,omitempty"`
 	Price            float64              `bson:"price,omitempty" json:"price,omitempty"`
 	FacilitiesPrice  float64              `bson:"facilities_price,omitempty" json:"facilities_price,omitempty"`
+	Subtotal         float64              `bson:"subtotal,omitempty" json:"subtotal,omitempty"`
 	PPN              float64              `bson:"ppn,omitempty" json:"ppn,omitempty"`
 	Total            float64              `bson:"total,omitempty" json:"total,omitempty"`
 	PaymentStatus    string               `bson:"payment_status,omitempty" json:"payment_status,omitempty"`
