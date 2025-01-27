@@ -19,6 +19,7 @@ import (
 	"github.com/organisasi/kosconnectbackend/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // CREATE / POST
@@ -241,6 +242,84 @@ func GetAllBoardingHouse(c *gin.Context) {
 		"message": "Boarding houses fetched successfully",
 		"data":    boardingHouses,
 	})
+}
+
+func GetBoardingHouseDetails(c *gin.Context) {
+	boardingHouseID := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(boardingHouseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid boarding house ID"})
+		return
+	}
+
+	boardingHouseCollection := config.DB.Collection("boardinghouses")
+
+	// Pipeline untuk mengambil category_id, owner_id, dan facilities
+	pipeline := mongo.Pipeline{
+		{
+			{Key: "$match", Value: bson.D{
+				{Key: "_id", Value: objectID}, // Filter berdasarkan BoardingHouse ID
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "categories"},            // Gabungkan dengan koleksi Categories
+				{Key: "localField", Value: "category_id"},    // Field referensi dari BoardingHouse
+				{Key: "foreignField", Value: "_id"},          // Field referensi di koleksi Categories
+				{Key: "as", Value: "category"},               // Hasil join disimpan dalam field category
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$category"}, // Unwind untuk mengubah array menjadi objek
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "users"},                 // Gabungkan dengan koleksi Users
+				{Key: "localField", Value: "owner_id"},       // Field referensi dari BoardingHouse
+				{Key: "foreignField", Value: "_id"},         // Field referensi di koleksi Users
+				{Key: "as", Value: "owner"},                 // Hasil join disimpan dalam field owner
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$owner"}, // Unwind untuk mengubah array menjadi objek
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "facilities"},           // Gabungkan dengan koleksi Facilities
+				{Key: "localField", Value: "facilities_id"},  // Field referensi array dari BoardingHouse
+				{Key: "foreignField", Value: "_id"},         // Field referensi di koleksi Facilities
+				{Key: "as", Value: "facilities"},            // Hasil join disimpan dalam field facilities
+			}},
+		},
+		{
+			{Key: "$project", Value: bson.D{
+				{Key: "category_name", Value: "$category.name"}, // Ambil nama kategori
+				{Key: "owner_fullname", Value: "$owner.fullname"}, // Ambil fullname owner
+				{Key: "facilities", Value: "$facilities.name"},    // Ambil nama fasilitas
+			}},
+		},
+	}
+
+	// Eksekusi pipeline
+	cursor, err := boardingHouseCollection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data"})
+		return
+	}
+
+	// Decode hasil query
+	var boardingHouseDetails []bson.M
+	if err := cursor.All(context.TODO(), &boardingHouseDetails); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
+		return
+	}
+
+	// Kirimkan response JSON
+	c.JSON(http.StatusOK, boardingHouseDetails)
 }
 
 // GetBoardingHouseByID retrieves a boarding house by ID along with its associated facility names, category name, and owner name

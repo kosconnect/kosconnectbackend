@@ -79,6 +79,7 @@ func BoardingHouse(router *gin.Engine) {
 	{
 		// Public route
 		api.GET("/", controllers.GetAllBoardingHouse)
+		api.GET("/:id/detail", controllers.GetBoardingHouseDetails)
 		api.GET("/:id", controllers.GetBoardingHouseByID)
 
 		// Protected routes - Requires JWT authentication
