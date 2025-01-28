@@ -126,6 +126,18 @@ func CreateTransaction(c *gin.Context) {
 		})
 	}
 
+	// Ambil data kamar dan validasi ketersediaan
+	err = roomCollection.FindOne(context.TODO(), bson.M{"_id": roomObjectID}).Decode(&room)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
+
+	if room.NumberAvailable <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Room is not available"})
+		return
+	}
+
 	// Hitung total harga custom facilities
 	var facilitiesPrice float64
 	for _, cf := range customFacilities {
@@ -185,32 +197,24 @@ func CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	// // Panggil fungsi CreatePayment untuk mendapatkan redirectURL dari Midtrans
-	// snapReq := &snap.Request{
-	// 	TransactionDetails: midtrans.TransactionDetails{
-	// 		OrderID:  transaction.TransactionCode,
-	// 		GrossAmt: int64(transaction.Total),
-	// 	},
-	// 	CustomerDetail: &midtrans.CustomerDetails{
-	// 		FName: requestBody.PersonalInfo.FullName,
-	// 		Email: requestBody.PersonalInfo.Email,
-	// 		Phone: requestBody.PersonalInfo.PhoneNumber,
-	// 	},
-	// }
-
-	// snapResp, err := config.SnapClient.CreateTransaction(snapReq)
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment: " + err.Error()})
-	// 	return
-	// }
+	// Update jumlah kamar yang tersedia
+	updateResult, err := roomCollection.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": roomObjectID},
+		bson.M{"$inc": bson.M{"number_available": -1}}, // Kurangi jumlah kamar
+	)
+	if err != nil || updateResult.ModifiedCount == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update room availability"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "Transaction created successfully",
 		"transaction_id": transaction.TransactionID,
-		// "redirectURL":    snapResp.RedirectURL,
 		"details": gin.H{
 			"room_price":       roomPrice,
 			"facilities_price": facilitiesPrice,
+			"subtotal":         subtotal,
 			"ppn":              ppn,
 			"total":            total,
 		},
