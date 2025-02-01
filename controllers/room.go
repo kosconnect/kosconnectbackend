@@ -31,42 +31,40 @@ func formatrupiah(price float64) string {
 }
 
 func CreateRoom(c *gin.Context) {
+	// Ambil boardingHouseID dari URL
+	boardingHouseIDStr := c.Param("boardingHouseID")
+	boardingHouseID, err := primitive.ObjectIDFromHex(boardingHouseIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid BoardingHouseID"})
+		return
+	}
+
+	// Ambil ownerID dari BoardingHouse
+	var boardingHouse models.BoardingHouse
+	collectionBoardingHouse := config.DB.Collection("boardinghouses")
+	err = collectionBoardingHouse.FindOne(context.TODO(), bson.M{"_id": boardingHouseID}).Decode(&boardingHouse)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Boarding house not found"})
+		return
+	}
+	ownerID := boardingHouse.OwnerID // Ambil ownerID dari data BoardingHouse
+
 	// Parse form-data
-	err := c.Request.ParseMultipartForm(10 << 20)
+	err = c.Request.ParseMultipartForm(10 << 20)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form-data"})
 		return
 	}
 
-	// Extract fields
-	boardingHouseID, _ := primitive.ObjectIDFromHex(c.PostForm("boarding_house_id"))
+	// Ambil field dari form-data
 	roomType := c.PostForm("room_type")
 	size := c.PostForm("size")
 
-	// Parsing and defaulting prices
-	priceMonthlyStr := c.PostForm("price_monthly")
-	priceMonthly := 0
-	if priceMonthlyStr != "" {
-		priceMonthly, _ = strconv.Atoi(priceMonthlyStr)
-	}
-
-	priceQuarterlyStr := c.PostForm("price_quarterly")
-	priceQuarterly := 0
-	if priceQuarterlyStr != "" {
-		priceQuarterly, _ = strconv.Atoi(priceQuarterlyStr)
-	}
-
-	priceSemiAnnualStr := c.PostForm("price_semi_annual")
-	priceSemiAnnual := 0
-	if priceSemiAnnualStr != "" {
-		priceSemiAnnual, _ = strconv.Atoi(priceSemiAnnualStr)
-	}
-
-	priceYearlyStr := c.PostForm("price_yearly")
-	priceYearly := 0
-	if priceYearlyStr != "" {
-		priceYearly, _ = strconv.Atoi(priceYearlyStr)
-	}
+	// Parsing harga dengan default 0 jika kosong
+	priceMonthly, _ := strconv.Atoi(c.DefaultPostForm("price_monthly", "0"))
+	priceQuarterly, _ := strconv.Atoi(c.DefaultPostForm("price_quarterly", "0"))
+	priceSemiAnnual, _ := strconv.Atoi(c.DefaultPostForm("price_semi_annual", "0"))
+	priceYearly, _ := strconv.Atoi(c.DefaultPostForm("price_yearly", "0"))
 
 	// Parse Room Facilities
 	var roomFacilities []primitive.ObjectID
@@ -75,12 +73,12 @@ func CreateRoom(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room facilities format"})
 		return
 	}
+
 	// Validasi Room Facilities
 	collectionFacilities := config.DB.Collection("facilities")
 	validRoomFacilities := []primitive.ObjectID{}
 
 	for _, facilityID := range roomFacilities {
-		// Cek apakah fasilitas ada dan typenya "room"
 		err := collectionFacilities.FindOne(context.TODO(), bson.M{
 			"_id":  facilityID,
 			"type": "room",
@@ -93,7 +91,6 @@ func CreateRoom(c *gin.Context) {
 			return
 		}
 
-		// Tambahkan ke daftar fasilitas valid
 		validRoomFacilities = append(validRoomFacilities, facilityID)
 	}
 
@@ -104,23 +101,23 @@ func CreateRoom(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid custom facilities format"})
 		return
 	}
+
 	collectionCustomFacilities := config.DB.Collection("customFacility")
 	validCustomFacilities := []primitive.ObjectID{}
 
 	for _, facilityID := range customFacilities {
-		// Cek apakah fasilitas ada di database
 		err := collectionCustomFacilities.FindOne(context.TODO(), bson.M{
-			"_id": facilityID,
+			"_id":      facilityID,
+			"owner_id": ownerID,
 		}).Err()
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": fmt.Sprintf("Custom facility with ID %s is not valid", facilityID.Hex()),
+				"error": fmt.Sprintf("Custom facility with ID %s is not valid or not owned by this user", facilityID.Hex()),
 			})
 			return
 		}
 
-		// Tambahkan ke daftar fasilitas valid
 		validCustomFacilities = append(validCustomFacilities, facilityID)
 	}
 
@@ -163,7 +160,6 @@ func CreateRoom(c *gin.Context) {
 				return
 			}
 
-			// Ganti URL GitHub dengan raw.githubusercontent.com dan perbaiki path (hilangkan 'blob')
 			imageURL := strings.Replace(resp.GetContent().GetHTMLURL(), "github.com", "raw.githubusercontent.com", 1)
 			imageURL = strings.Replace(imageURL, "/blob/", "/", 1)
 
@@ -172,11 +168,7 @@ func CreateRoom(c *gin.Context) {
 	}
 
 	// Ambil nilai dari form (atau set default jika kosong)
-	numberAvailableStr := c.PostForm("number_available")
-	numberAvailable := 0
-	if numberAvailableStr != "" {
-		numberAvailable, _ = strconv.Atoi(numberAvailableStr)
-	}
+	numberAvailable, _ := strconv.Atoi(c.DefaultPostForm("number_available", "0"))
 
 	status := "Tidak Tersedia"
 	if numberAvailable >= 1 {
@@ -195,8 +187,8 @@ func CreateRoom(c *gin.Context) {
 			SemiAnnual: priceSemiAnnual,
 			Yearly:     priceYearly,
 		},
-		RoomFacilities:   validRoomFacilities,   // Menggunakan ID fasilitas langsung
-		CustomFacilities: validCustomFacilities, // Menggunakan ID fasilitas kustom langsung
+		RoomFacilities:   validRoomFacilities,
+		CustomFacilities: validCustomFacilities,
 		NumberAvailable:  numberAvailable,
 		Status:           status,
 		Images:           roomImageURL,
@@ -220,11 +212,12 @@ func CreateRoom(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Room created successfully",
 		"data": gin.H{
-			"room":             room, // Mengirimkan ID fasilitas seperti yang ada
+			"room":             room,
 			"prices_formatted": formattedPrices,
 		},
 	})
 }
+
 
 // GetAllRoom retrieves all rooms for public view
 func GetAllRooms(c *gin.Context) {
@@ -416,141 +409,141 @@ func GetRoomDetailsByID(c *gin.Context) {
 }
 
 func GetRoomDetailPages(c *gin.Context) {
-    roomID := c.Param("id")
-    objectID, err := primitive.ObjectIDFromHex(roomID)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
-        return
-    }
+	roomID := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(roomID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
+		return
+	}
 
-    roomCollection := config.DB.Collection("rooms")
+	roomCollection := config.DB.Collection("rooms")
 
-    // Pipeline untuk menggabungkan data dan gambar, termasuk owner, kategori, fasilitas, dan custom fasilitas
-    pipeline := mongo.Pipeline{
-        {
-            {Key: "$match", Value: bson.D{
-                {Key: "_id", Value: objectID}, // Filter berdasarkan Room ID
-            }},
-        },
-        {
-            {Key: "$lookup", Value: bson.D{
-                {Key: "from", Value: "boardinghouses"},          // Gabungkan dengan koleksi BoardingHouse
-                {Key: "localField", Value: "boarding_house_id"}, // Field referensi dari koleksi Room
-                {Key: "foreignField", Value: "_id"},             // Field referensi di koleksi BoardingHouse
-                {Key: "as", Value: "boarding_house"},            // Hasil join disimpan dalam field boarding_house
-            }},
-        },
-        {
-            {Key: "$unwind", Value: bson.D{
-                {Key: "path", Value: "$boarding_house"}, // Unwind untuk mengubah array menjadi objek
-            }},
-        },
-        {
-            {Key: "$lookup", Value: bson.D{
-                {Key: "from", Value: "users"},                         // Gabungkan dengan koleksi Users untuk mendapatkan Owner
-                {Key: "localField", Value: "boarding_house.owner_id"}, // Field referensi dari koleksi BoardingHouse
-                {Key: "foreignField", Value: "_id"},                   // Field referensi di koleksi Users (Owner)
-                {Key: "as", Value: "owner"},                           // Hasil join disimpan dalam field owner
-            }},
-        },
-        {
-            {Key: "$unwind", Value: bson.D{
-                {Key: "path", Value: "$owner"}, // Unwind untuk mengubah array menjadi objek
-            }},
-        },
-        {
-            {Key: "$lookup", Value: bson.D{
-                {Key: "from", Value: "categories"},                       // Gabungkan dengan koleksi Categories untuk mendapatkan kategori
-                {Key: "localField", Value: "boarding_house.category_id"}, // Field referensi dari boarding_house
-                {Key: "foreignField", Value: "_id"},                      // Field referensi di koleksi Categories
-                {Key: "as", Value: "category"},                           // Hasil join disimpan dalam field category
-            }},
-        },
-        {
-            {Key: "$unwind", Value: bson.D{
-                {Key: "path", Value: "$category"}, // Unwind untuk mengubah array menjadi objek
-            }},
-        },
-        {
-            {Key: "$lookup", Value: bson.D{
-                {Key: "from", Value: "facilities"}, // Gabungkan dengan koleksi Facilities
-                {Key: "localField", Value: "boarding_house.facilities_id"},
-                {Key: "foreignField", Value: "_id"},
-                {Key: "as", Value: "facilities"}, // Hasil join disimpan dalam field room_facilities
-            }},
-        },
-        {
-            {Key: "$lookup", Value: bson.D{
-                {Key: "from", Value: "facilities"},         // Gabungkan dengan koleksi Facilities
-                {Key: "localField", Value: "room_facilities"},
-                {Key: "foreignField", Value: "_id"},
-                {Key: "as", Value: "room_facilities"},      // Hasil join disimpan dalam field room_facilities
-            }},
-        },
-        {
-            {Key: "$lookup", Value: bson.D{
-                {Key: "from", Value: "customFacility"}, // Gabungkan dengan koleksi Custom Facilities
-                {Key: "localField", Value: "custom_facilities"},
-                {Key: "foreignField", Value: "_id"},
-                {Key: "as", Value: "custom_facilities"}, // Hasil join disimpan dalam field custom_facilities
-            }},
-        },
-        {
-            {Key: "$addFields", Value: bson.D{
-                {Key: "all_images", Value: bson.D{
-                    {Key: "$concatArrays", Value: bson.A{"$images", "$boarding_house.images"}}, // Gabungkan gambar
-                }},
-                {Key: "owner_fullname", Value: "$owner.fullname"}, // Tambahkan fullname dari owner
-                {Key: "category_name", Value: "$category.name"},   // Tambahkan nama kategori
-                {Key: "longitude", Value: "$boarding_house.longitude"},   // Tambahkan nama kategori
-                {Key: "latitude", Value: "$boarding_house.latitude"},   // Tambahkan nama kategori
-                {Key: "rules", Value: "$boarding_house.rules"},   // Tambahkan nama kategori
-                {Key: "description", Value: "$boarding_house.description"},   // Tambahkan nama kategori
-                {Key: "address", Value: "$boarding_house.address"},   // Tambahkan nama kategori
-                {Key: "room_name", Value: bson.D{
-                    {Key: "$concat", Value: bson.A{"$boarding_house.name", " Tipe ", "$room_type"}}, // Gabungkan nama kos dan tipe kamar
-                }},
-            }},
-        },
-        {
-            {Key: "$project", Value: bson.D{
-                {Key: "room_id", Value: "$_id"},
-                {Key: "boarding_house_id", Value: "$boarding_house._id"},
-                {Key: "room_name", Value: 1},
-                {Key: "all_images", Value: 1},
-                {Key: "owner_fullname", Value: 1},
-                {Key: "category_name", Value: 1},
-                {Key: "facilities", Value: "$facilities"},
-                {Key: "room_facilities", Value: "$room_facilities"},
-                {Key: "custom_facilities", Value: "$custom_facilities"},
-                {Key: "price", Value: "$price"},
-                {Key: "description", Value: 1},
-                {Key: "address", Value: 1},
-                {Key: "size", Value: 1},
-                {Key: "longitude", Value:1},
-                {Key: "latitude", Value: 1},
-                {Key: "rules", Value: 1},
-                {Key: "number_available", Value: 1},
-            }},
-        },
-    }
+	// Pipeline untuk menggabungkan data dan gambar, termasuk owner, kategori, fasilitas, dan custom fasilitas
+	pipeline := mongo.Pipeline{
+		{
+			{Key: "$match", Value: bson.D{
+				{Key: "_id", Value: objectID}, // Filter berdasarkan Room ID
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "boardinghouses"},          // Gabungkan dengan koleksi BoardingHouse
+				{Key: "localField", Value: "boarding_house_id"}, // Field referensi dari koleksi Room
+				{Key: "foreignField", Value: "_id"},             // Field referensi di koleksi BoardingHouse
+				{Key: "as", Value: "boarding_house"},            // Hasil join disimpan dalam field boarding_house
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$boarding_house"}, // Unwind untuk mengubah array menjadi objek
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "users"},                         // Gabungkan dengan koleksi Users untuk mendapatkan Owner
+				{Key: "localField", Value: "boarding_house.owner_id"}, // Field referensi dari koleksi BoardingHouse
+				{Key: "foreignField", Value: "_id"},                   // Field referensi di koleksi Users (Owner)
+				{Key: "as", Value: "owner"},                           // Hasil join disimpan dalam field owner
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$owner"}, // Unwind untuk mengubah array menjadi objek
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "categories"},                       // Gabungkan dengan koleksi Categories untuk mendapatkan kategori
+				{Key: "localField", Value: "boarding_house.category_id"}, // Field referensi dari boarding_house
+				{Key: "foreignField", Value: "_id"},                      // Field referensi di koleksi Categories
+				{Key: "as", Value: "category"},                           // Hasil join disimpan dalam field category
+			}},
+		},
+		{
+			{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$category"}, // Unwind untuk mengubah array menjadi objek
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "facilities"}, // Gabungkan dengan koleksi Facilities
+				{Key: "localField", Value: "boarding_house.facilities_id"},
+				{Key: "foreignField", Value: "_id"},
+				{Key: "as", Value: "facilities"}, // Hasil join disimpan dalam field room_facilities
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "facilities"}, // Gabungkan dengan koleksi Facilities
+				{Key: "localField", Value: "room_facilities"},
+				{Key: "foreignField", Value: "_id"},
+				{Key: "as", Value: "room_facilities"}, // Hasil join disimpan dalam field room_facilities
+			}},
+		},
+		{
+			{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "customFacility"}, // Gabungkan dengan koleksi Custom Facilities
+				{Key: "localField", Value: "custom_facilities"},
+				{Key: "foreignField", Value: "_id"},
+				{Key: "as", Value: "custom_facilities"}, // Hasil join disimpan dalam field custom_facilities
+			}},
+		},
+		{
+			{Key: "$addFields", Value: bson.D{
+				{Key: "all_images", Value: bson.D{
+					{Key: "$concatArrays", Value: bson.A{"$images", "$boarding_house.images"}}, // Gabungkan gambar
+				}},
+				{Key: "owner_fullname", Value: "$owner.fullname"},          // Tambahkan fullname dari owner
+				{Key: "category_name", Value: "$category.name"},            // Tambahkan nama kategori
+				{Key: "longitude", Value: "$boarding_house.longitude"},     // Tambahkan nama kategori
+				{Key: "latitude", Value: "$boarding_house.latitude"},       // Tambahkan nama kategori
+				{Key: "rules", Value: "$boarding_house.rules"},             // Tambahkan nama kategori
+				{Key: "description", Value: "$boarding_house.description"}, // Tambahkan nama kategori
+				{Key: "address", Value: "$boarding_house.address"},         // Tambahkan nama kategori
+				{Key: "room_name", Value: bson.D{
+					{Key: "$concat", Value: bson.A{"$boarding_house.name", " Tipe ", "$room_type"}}, // Gabungkan nama kos dan tipe kamar
+				}},
+			}},
+		},
+		{
+			{Key: "$project", Value: bson.D{
+				{Key: "room_id", Value: "$_id"},
+				{Key: "boarding_house_id", Value: "$boarding_house._id"},
+				{Key: "room_name", Value: 1},
+				{Key: "all_images", Value: 1},
+				{Key: "owner_fullname", Value: 1},
+				{Key: "category_name", Value: 1},
+				{Key: "facilities", Value: "$facilities"},
+				{Key: "room_facilities", Value: "$room_facilities"},
+				{Key: "custom_facilities", Value: "$custom_facilities"},
+				{Key: "price", Value: "$price"},
+				{Key: "description", Value: 1},
+				{Key: "address", Value: 1},
+				{Key: "size", Value: 1},
+				{Key: "longitude", Value: 1},
+				{Key: "latitude", Value: 1},
+				{Key: "rules", Value: 1},
+				{Key: "number_available", Value: 1},
+			}},
+		},
+	}
 
-    // Eksekusi pipeline
-    cursor, err := roomCollection.Aggregate(context.TODO(), pipeline)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data"})
-        return
-    }
+	// Eksekusi pipeline
+	cursor, err := roomCollection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data"})
+		return
+	}
 
-    // Decode hasil query
-    var roomDetails []bson.M
-    if err := cursor.All(context.TODO(), &roomDetails); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
-        return
-    }
+	// Decode hasil query
+	var roomDetails []bson.M
+	if err := cursor.All(context.TODO(), &roomDetails); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
+		return
+	}
 
-    // Kirimkan response JSON
-    c.JSON(http.StatusOK, roomDetails)
+	// Kirimkan response JSON
+	c.JSON(http.StatusOK, roomDetails)
 }
 
 func GetRoomsForLandingPage(c *gin.Context) {

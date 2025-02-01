@@ -123,6 +123,46 @@ func GetCustomFacilitiesByOwnerID(c *gin.Context) {
 	c.JSON(http.StatusOK, facilities)
 }
 
+// Get CustomFacilities by OwnerID (Admin - via Query Parameter)
+func GetCustomFacilitiesByOwnerIDAdmin(c *gin.Context) {
+	claims := c.MustGet("user").(jwt.MapClaims)
+	role, _ := claims["role"].(string)
+
+	if role != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can access this"})
+		return
+	}
+
+	ownerIDStr := c.Query("owner_id")
+	if ownerIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "owner_id is required"})
+		return
+	}
+
+	ownerID, err := primitive.ObjectIDFromHex(ownerIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owner ID"})
+		return
+	}
+
+	collection := config.DB.Collection("customFacility")
+	var facilities []models.CustomFacility
+
+	cursor, err := collection.Find(context.TODO(), bson.M{"owner_id": ownerID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch custom facilities"})
+		return
+	}
+	defer cursor.Close(context.TODO())
+
+	if err := cursor.All(context.TODO(), &facilities); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse custom facilities"})
+		return
+	}
+
+	c.JSON(http.StatusOK, facilities)
+}
+
 // Update CustomFacility
 func UpdateCustomFacility(c *gin.Context) {
 	claims := c.MustGet("user").(jwt.MapClaims)

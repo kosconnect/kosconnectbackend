@@ -57,6 +57,9 @@ func CustomFacility(router *gin.Engine) {
 
 		// Rute untuk mengambil fasilitas khusus berdasarkan owner ID
 		api.GET("/owner", middlewares.JWTAuthMiddleware(), controllers.GetCustomFacilitiesByOwnerID)
+
+		// Rute untuk mengambil fasilitas khusus berdasarkan owner ID yang disimpan di query atau url disisi admin
+		api.GET("/admin", middlewares.JWTAuthMiddleware(), controllers.GetCustomFacilitiesByOwnerIDAdmin)
 	}
 }
 
@@ -126,7 +129,7 @@ func RoomRoutes(router *gin.Engine) {
 		api.GET("/boarding-house/:id", controllers.GetRoomByBoardingHouseID)
 
 		// Protected endpoints for owners/admin to manage rooms
-		api.POST("/", controllers.CreateRoom)      // Create room
+		api.POST("/:boardingHouseID", controllers.CreateRoom)
 		api.PUT("/:id", controllers.UpdateRoom)    // Update room
 		api.DELETE("/:id", controllers.DeleteRoom) // Delete room
 	}
