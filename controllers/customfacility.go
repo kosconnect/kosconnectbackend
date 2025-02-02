@@ -212,6 +212,12 @@ func DeleteCustomFacility(c *gin.Context) {
 	claims := c.MustGet("user").(jwt.MapClaims)
 	role, _ := claims["role"].(string)
 
+	// Hanya admin atau owner yang boleh menghapus
+	if role != "admin" && role != "owner" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access"})
+		return
+	}
+
 	id := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -219,15 +225,27 @@ func DeleteCustomFacility(c *gin.Context) {
 		return
 	}
 
+	// Default filter hanya berdasarkan _id (admin dapat menghapus apa saja)
 	filter := bson.M{"_id": objID}
+
+	// Jika role adalah owner, hanya bisa menghapus fasilitas miliknya sendiri
 	if role == "owner" {
 		ownerID, _ := primitive.ObjectIDFromHex(claims["user_id"].(string))
 		filter["owner_id"] = ownerID
 	}
 
 	collection := config.DB.Collection("customFacility")
-	if _, err := collection.DeleteOne(context.TODO(), filter); err != nil {
+
+	// Lakukan penghapusan berdasarkan filter yang sudah disesuaikan
+	result, err := collection.DeleteOne(context.TODO(), filter)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete custom facility"})
+		return
+	}
+
+	// Jika tidak ada dokumen yang dihapus, berarti fasilitas tidak ditemukan atau owner mencoba menghapus milik orang lain
+	if result.DeletedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Custom facility not found or unauthorized"})
 		return
 	}
 
