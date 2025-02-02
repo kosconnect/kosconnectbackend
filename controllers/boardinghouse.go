@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -116,20 +115,6 @@ func CreateBoardingHouse(c *gin.Context) {
 		validFacilities = append(validFacilities, facilityObjectID)
 	}
 
-	// Ambil longitude dan latitude
-	latitudeStr := c.PostForm("latitude")
-	longitudeStr := c.PostForm("longitude")
-	latitude, err := strconv.ParseFloat(latitudeStr, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid latitude: %v", err)})
-		return
-	}
-	longitude, err := strconv.ParseFloat(longitudeStr, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid longitude: %v", err)})
-		return
-	}
-
 	// Proses gambar
 	var boardinghouseImageURL []string
 	form, err := c.MultipartForm()
@@ -190,8 +175,6 @@ func CreateBoardingHouse(c *gin.Context) {
 		Name:            name,
 		Slug:            slug,
 		Address:         address,
-		Longitude:       longitude,
-		Latitude:        latitude,
 		Description:     description,
 		Facilities:      validFacilities,
 		Images:          boardinghouseImageURL,
@@ -491,25 +474,6 @@ func UpdateBoardingHouse(c *gin.Context) {
 			return
 		}
 		updateFields["facilities_id"] = facilities
-	}
-
-	// Update location and fetch closest places
-	latitudeStr := c.PostForm("latitude")
-	longitudeStr := c.PostForm("longitude")
-	if latitudeStr != "" && longitudeStr != "" {
-		latitude, err := strconv.ParseFloat(latitudeStr, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid latitude: %v", err)})
-			return
-		}
-		longitude, err := strconv.ParseFloat(longitudeStr, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid longitude: %v", err)})
-			return
-		}
-
-		updateFields["latitude"] = latitude
-		updateFields["longitude"] = longitude
 	}
 
 	// Update images

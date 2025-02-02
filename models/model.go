@@ -34,8 +34,6 @@ type BoardingHouse struct {
 	Name            string               `bson:"name,omitempty" json:"name,omitempty"`
 	Slug            string               `bson:"slug,omitempty" json:"slug,omitempty"`
 	Address         string               `bson:"address,omitempty" json:"address,omitempty"`
-	Longitude       float64              `bson:"longitude,omitempty" json:"longitude,omitempty"`
-	Latitude        float64              `bson:"latitude,omitempty" json:"latitude,omitempty"`
 	Description     string               `bson:"description,omitempty" json:"description,omitempty"`
 	Facilities      []primitive.ObjectID `bson:"facilities_id,omitempty" json:"facilities_id,omitempty"`
 	Images          []string             `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs

@@ -493,10 +493,9 @@ func GetRoomDetailPages(c *gin.Context) {
 				{Key: "all_images", Value: bson.D{
 					{Key: "$concatArrays", Value: bson.A{"$images", "$boarding_house.images"}}, // Gabungkan gambar
 				}},
+				{Key: "owner_id", Value: "$boarding_house.owner_id"},
 				{Key: "owner_fullname", Value: "$owner.fullname"},          // Tambahkan fullname dari owner
 				{Key: "category_name", Value: "$category.name"},            // Tambahkan nama kategori
-				{Key: "longitude", Value: "$boarding_house.longitude"},     // Tambahkan nama kategori
-				{Key: "latitude", Value: "$boarding_house.latitude"},       // Tambahkan nama kategori
 				{Key: "rules", Value: "$boarding_house.rules"},             // Tambahkan nama kategori
 				{Key: "description", Value: "$boarding_house.description"}, // Tambahkan nama kategori
 				{Key: "address", Value: "$boarding_house.address"},         // Tambahkan nama kategori
@@ -509,6 +508,7 @@ func GetRoomDetailPages(c *gin.Context) {
 			{Key: "$project", Value: bson.D{
 				{Key: "room_id", Value: "$_id"},
 				{Key: "boarding_house_id", Value: "$boarding_house._id"},
+				{Key: "owner_id", Value: 1},
 				{Key: "room_name", Value: 1},
 				{Key: "all_images", Value: 1},
 				{Key: "owner_fullname", Value: 1},
@@ -520,8 +520,6 @@ func GetRoomDetailPages(c *gin.Context) {
 				{Key: "description", Value: 1},
 				{Key: "address", Value: 1},
 				{Key: "size", Value: 1},
-				{Key: "longitude", Value: 1},
-				{Key: "latitude", Value: 1},
 				{Key: "rules", Value: 1},
 				{Key: "number_available", Value: 1},
 			}},
