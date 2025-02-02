@@ -93,23 +93,3 @@ func SendVerificationEmail(email, verificationLink, fullName string) error {
 	// Kirim email
 	return smtp.SendMail("smtp.gmail.com:587", auth, "kosconnect2@gmail.com", to, msg)
 }
-
-// func SendBookingNotification(ownerEmail, boardingHouseName, customerName, bookingDetails string) error {
-// 	mailer := gomail.NewMessage()
-// 	mailer.SetHeader("From", "kosconnect2@gmail.com")
-// 	mailer.SetHeader("To", ownerEmail)
-// 	mailer.SetHeader("Subject", fmt.Sprintf("Booking Baru di %s", boardingHouseName))
-// 	mailer.SetBody("text/plain", fmt.Sprintf(
-// 		"Halo,\n\nAda booking baru di kos \"%s\" oleh pelanggan \"%s\".\n\nDetail Booking:\n%s\n",
-// 		boardingHouseName, customerName, bookingDetails,
-// 	))
-
-// 	dialer := gomail.NewDialer("smtp.example.com", 587, "kosconnect2@example.com", "your-password")
-// 	if err := dialer.DialAndSend(mailer); err != nil {
-// 		fmt.Printf("Gagal mengirim email: %v", err)
-// 		return err
-// 	}
-
-// 	fmt.Println("Email berhasil dikirim!")
-// 	return nil
-// }

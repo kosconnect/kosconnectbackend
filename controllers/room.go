@@ -668,37 +668,20 @@ func UpdateRoom(c *gin.Context) {
 	roomType := c.PostForm("room_type")
 	size := c.PostForm("size")
 
-	priceMonthlyStr := c.PostForm("price_monthly")
-	priceMonthly := 0
-	if priceMonthlyStr != "" {
-		priceMonthly, _ = strconv.Atoi(priceMonthlyStr)
+	// Parsing harga dengan validasi minimal satu harus diisi
+	priceMonthly, _ := strconv.Atoi(c.DefaultPostForm("price_monthly", "0"))
+	priceQuarterly, _ := strconv.Atoi(c.DefaultPostForm("price_quarterly", "0"))
+	priceSemiAnnual, _ := strconv.Atoi(c.DefaultPostForm("price_semi_annual", "0"))
+	priceYearly, _ := strconv.Atoi(c.DefaultPostForm("price_yearly", "0"))
+
+	if priceMonthly == 0 && priceQuarterly == 0 && priceSemiAnnual == 0 && priceYearly == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Minimal satu harga harus diisi"})
+		return
 	}
 
-	priceQuarterlyStr := c.PostForm("price_quarterly")
-	priceQuarterly := 0
-	if priceQuarterlyStr != "" {
-		priceQuarterly, _ = strconv.Atoi(priceQuarterlyStr)
-	}
+	numberAvailable, _ := strconv.Atoi(c.DefaultPostForm("number_available", "0"))
 
-	priceSemiAnnualStr := c.PostForm("price_semi_annual")
-	priceSemiAnnual := 0
-	if priceSemiAnnualStr != "" {
-		priceSemiAnnual, _ = strconv.Atoi(priceSemiAnnualStr)
-	}
-
-	priceYearlyStr := c.PostForm("price_yearly")
-	priceYearly := 0
-	if priceYearlyStr != "" {
-		priceYearly, _ = strconv.Atoi(priceYearlyStr)
-	}
-
-	numberAvailableStr := c.PostForm("number_available")
-	numberAvailable := 0
-	if numberAvailableStr != "" {
-		numberAvailable, _ = strconv.Atoi(numberAvailableStr)
-	}
-
-	// Parse facilities (room_facilities and custom_facilities)
+	// Validasi Room Facilities
 	var roomFacilities []primitive.ObjectID
 	roomFacilitiesJSON := c.PostForm("room_facilities")
 	if err := json.Unmarshal([]byte(roomFacilitiesJSON), &roomFacilities); err != nil {
@@ -706,6 +689,26 @@ func UpdateRoom(c *gin.Context) {
 		return
 	}
 
+	collectionFacilities := config.DB.Collection("facilities")
+	validRoomFacilities := []primitive.ObjectID{}
+
+	for _, facilityID := range roomFacilities {
+		err := collectionFacilities.FindOne(context.TODO(), bson.M{
+			"_id":  facilityID,
+			"type": "room",
+		}).Err()
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Room facility with ID %s is not valid or not of type 'room'", facilityID.Hex()),
+			})
+			return
+		}
+
+		validRoomFacilities = append(validRoomFacilities, facilityID)
+	}
+
+	// Validasi Custom Facilities
 	var customFacilities []primitive.ObjectID
 	customFacilitiesJSON := c.PostForm("custom_facilities")
 	if err := json.Unmarshal([]byte(customFacilitiesJSON), &customFacilities); err != nil {
@@ -713,27 +716,29 @@ func UpdateRoom(c *gin.Context) {
 		return
 	}
 
-	// Prepare the update fields
-	updateFields := bson.M{
-		"room_type":         roomType,
-		"size":              size,
-		"room_facilities":   roomFacilities,
-		"custom_facilities": customFacilities,
-		"number_available":  numberAvailable,
-	}
+	collectionCustomFacilities := config.DB.Collection("customFacility")
+	validCustomFacilities := []primitive.ObjectID{}
 
-	// Handle room price
-	updateFields["price"] = models.RoomPrice{
-		Monthly:    priceMonthly,
-		Quarterly:  priceQuarterly,
-		SemiAnnual: priceSemiAnnual,
-		Yearly:     priceYearly,
+	for _, facilityID := range customFacilities {
+		err := collectionCustomFacilities.FindOne(context.TODO(), bson.M{
+			"_id": facilityID,
+		}).Err()
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Custom facility with ID %s is not valid", facilityID.Hex()),
+			})
+			return
+		}
+
+		validCustomFacilities = append(validCustomFacilities, facilityID)
 	}
 
 	// Handle images
 	form, err := c.MultipartForm()
+	var roomImageURL []string
+
 	if err == nil {
-		var roomImageURL []string
 		files := form.File["images"]
 		for _, fileHeader := range files {
 			file, err := fileHeader.Open()
@@ -774,28 +779,27 @@ func UpdateRoom(c *gin.Context) {
 
 			roomImageURL = append(roomImageURL, imageURL)
 		}
+	}
 
-		// Update room images
+	// Update fields
+	updateFields := bson.M{
+		"room_type":         roomType,
+		"size":              size,
+		"price":             models.RoomPrice{Monthly: priceMonthly, Quarterly: priceQuarterly, SemiAnnual: priceSemiAnnual, Yearly: priceYearly},
+		"room_facilities":   validRoomFacilities,
+		"custom_facilities": validCustomFacilities,
+		"number_available":  numberAvailable,
+		"status":            map[bool]string{true: "Tersedia", false: "Tidak Tersedia"}[numberAvailable > 0],
+	}
+
+	if len(roomImageURL) > 0 {
 		updateFields["images"] = roomImageURL
 	}
 
-	// Determine the room status based on the number of available rooms
-	status := "Tidak Tersedia"
-	if numberAvailable >= 1 {
-		status = "Tersedia"
-	}
-	updateFields["status"] = status
-
-	// Update the room document in the database
 	collection := config.DB.Collection("rooms")
-	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": roomID}, bson.M{"$set": updateFields})
+	_, err = collection.UpdateOne(context.Background(), bson.M{"_id": roomID}, bson.M{"$set": updateFields})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update room in database"})
-		return
-	}
-
-	if result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
 		return
 	}
 

@@ -137,103 +137,6 @@ func VerifyEmail(c *gin.Context) {
     c.Redirect(http.StatusFound, "https://kosconnect.github.io/login?verified=true")
 }
 
-// registe yang sebelumnya:
-// func Register(c *gin.Context) {
-// 	var user models.User
-
-// 	// Bind JSON input to user model
-// 	if err := c.ShouldBindJSON(&user); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-// 		return
-// 	}
-
-// 	// Validate required fields
-// 	if user.FullName == "" || user.Email == "" || user.Password == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "All fields are required"})
-// 		return
-// 	}
-
-// 	// || user.PhoneNumber == ""
-
-// 	// Validate phone number format (E.164)
-// 	// phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
-// 	// if !phoneRegex.MatchString(user.PhoneNumber) {
-// 	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phone number format"})
-// 	// 	return
-// 	// }
-
-// 	// Check if email or phone number already exists
-// 	collection := config.DB.Collection("users")
-
-// 	// Check for email existence
-// 	emailExists := false
-// 	// phoneNumberExists := false
-
-// 	// Check if email exists
-// 	err := collection.FindOne(context.TODO(), bson.M{"email": user.Email}).Decode(&models.User{})
-// 	if err == nil {
-// 		emailExists = true
-// 	}
-
-// 	// // Check if phone number exists
-// 	// err = collection.FindOne(context.TODO(), bson.M{"phonenumber": user.PhoneNumber}).Decode(&models.User{})
-// 	// if err == nil {
-// 	// 	phoneNumberExists = true
-// 	// }
-
-// 	// // Construct error message
-// 	// if emailExists && phoneNumberExists {
-// 	// 	c.JSON(http.StatusConflict, gin.H{"error": "Email and phone number already in use"})
-// 	// 	return
-// 	// }
-// 	if emailExists {
-// 		c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
-// 		return
-// 	}
-// 	// if phoneNumberExists {
-// 	// 	c.JSON(http.StatusConflict, gin.H{"error": "Phone number already in use"})
-// 	// 	return
-// 	// }
-
-// 	// Handle database errors other than no document found
-// 	if err != mongo.ErrNoDocuments {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-// 		return
-// 	}
-
-// 	// Hash password
-// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-// 		return
-// 	}
-// 	user.Password = string(hashedPassword)
-
-// 	// Set default role (if not provided)
-// 	if user.Role == "" {
-// 		user.Role = "user" // Default role
-// 	}
-
-// 	if len(user.Password) < 6 {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 6 characters long"})
-// 		return
-// 	}
-
-// 	// Set user ID dan waktu
-// 	user.UserID = primitive.NewObjectID()
-// 	user.CreatedAt = time.Now()
-// 	user.UpdatedAt = time.Now()
-
-// 	// Insert user ke MongoDB
-// 	_, err = collection.InsertOne(context.TODO(), user)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
-// }
-
 // Google OAuth Configuration
 var googleOauthConfig = oauth2.Config{
 	RedirectURL:  "https://kosconnect-server.vercel.app/auth/callback", // Sesuaikan dengan konfigurasi Anda
@@ -401,6 +304,7 @@ func GoogleAuth(c *gin.Context) {
 	})
 }
 
+//SEMENTARA
 func Login(c *gin.Context) {
 	var loginData struct {
 		Email    string `json:"email"`
@@ -465,3 +369,75 @@ func Login(c *gin.Context) {
 		"role":    user.Role,
 	})
 }
+
+//YANG BENER
+// func Login(c *gin.Context) {
+// 	var loginData struct {
+// 		Email    string `json:"email"`
+// 		Password string `json:"password"`
+// 	}
+
+// 	// Bind JSON input
+// 	if err := c.ShouldBindJSON(&loginData); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+// 		return
+// 	}
+
+// 	// Cari user berdasarkan email
+// 	collection := config.DB.Collection("users")
+// 	var user models.User
+// 	err := collection.FindOne(context.TODO(), bson.M{"email": loginData.Email}).Decode(&user)
+// 	if err != nil {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+// 		return
+// 	}
+
+// 	// Cek apakah email sudah diverifikasi
+// 	if !user.VerifiedEmail {
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "Email belum diverifikasi. Silakan verifikasi email Anda."})
+// 		return
+// 	}
+
+// 	// Cek password
+// 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginData.Password))
+// 	if err != nil {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+// 		return
+// 	}
+
+// 	// Generate JWT token
+// 	token, err := generateToken(user.UserID, user.Role)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+// 		return
+// 	}
+
+// 	// Set token sebagai cookie
+// 	c.SetCookie(
+// 		"authToken", // Cookie name
+// 		token,       // Value
+// 		3600*24*7,   // Expiry time in seconds (7 days)
+// 		"/",         // Path
+// 		"",          // Domain (empty means same as the server's domain)
+// 		true,        // Secure (true for HTTPS only)
+// 		true,        // HttpOnly (true prevents JavaScript access)
+// 	)
+
+// 	// Set role sebagai cookie
+// 	c.SetCookie(
+// 		"userRole", // Cookie name
+// 		user.Role,  // Value
+// 		3600*24*7,  // Expiry time in seconds (7 days)
+// 		"/",        // Path
+// 		"",         // Domain (empty means same as the server's domain)
+// 		true,       // Secure (true for HTTPS only)
+// 		false,      // HttpOnly (false to allow JavaScript access)
+// 	)
+
+// 	// Kirim respon sukses
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"message": "Login successful",
+// 		"token":   token,
+// 		"role":    user.Role,
+// 	})
+// }
