@@ -24,6 +24,8 @@ type User struct {
 type Category struct {
 	CategoryID primitive.ObjectID `bson:"_id,omitempty" json:"category_id,omitempty"`
 	Name       string             `bson:"name,omitempty" json:"name,omitempty"`
+	CreatedAt  time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"` // Waktu pembuatan
+	UpdatedAt  time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"` // Waktu pembaruan
 }
 
 // BoardingHouse model
@@ -38,13 +40,17 @@ type BoardingHouse struct {
 	Facilities      []primitive.ObjectID `bson:"facilities_id,omitempty" json:"facilities_id,omitempty"`
 	Images          []string             `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
 	Rules           string               `bson:"rules,omitempty" json:"rules,omitempty"`
+	CreatedAt       time.Time            `bson:"created_at,omitempty" json:"created_at,omitempty"` // Waktu pembuatan
+	UpdatedAt       time.Time            `bson:"updated_at,omitempty" json:"updated_at,omitempty"` // Waktu pembaruan
 }
 
 // untuk simpan data facility umum di boarding house
 type Facility struct {
 	FacilityID primitive.ObjectID `bson:"_id,omitempty" json:"facility_id,omitempty"`
 	Name       string             `bson:"name,omitempty" json:"name,omitempty"`
-	Type       string             `bson:"type,omitempty" json:"type,omitempty"` // "room" atau "boarding_house"
+	Type       string             `bson:"type,omitempty" json:"type,omitempty"`             // "room" atau "boarding_house"
+	CreatedAt  time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"` // Waktu pembuatan
+	UpdatedAt  time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"` // Waktu pembaruan
 }
 
 // simpan data custom facility
@@ -53,6 +59,8 @@ type CustomFacility struct {
 	Name             string             `json:"name,omitempty" bson:"name,omitempty"`
 	Price            float64            `json:"price,omitempty" bson:"price,omitempty"`
 	OwnerID          primitive.ObjectID `json:"owner_id,omitempty" bson:"owner_id,omitempty"`
+	CreatedAt        time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"` // Waktu pembuatan
+	UpdatedAt        time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"` // Waktu pembaruan
 }
 
 // Room model
@@ -66,15 +74,19 @@ type Room struct {
 	CustomFacilities []primitive.ObjectID `bson:"custom_facilities,omitempty" json:"custom_facilities,omitempty"`
 	Status           string               `bson:"status,omitempty" json:"status,omitempty"`
 	NumberAvailable  int                  `bson:"number_available,omitempty" json:"number_available,omitempty"`
-	Images           []string             `bson:"images,omitempty" json:"images,omitempty"` // Array of image URLs
+	Images           []string             `bson:"images,omitempty" json:"images,omitempty"`         // Array of image URLs
+	CreatedAt        time.Time            `bson:"created_at,omitempty" json:"created_at,omitempty"` // Waktu pembuatan
+	UpdatedAt        time.Time            `bson:"updated_at,omitempty" json:"updated_at,omitempty"` // Waktu pembaruan
 }
 
 // RoomPrice struct
 type RoomPrice struct {
-	Monthly    int `bson:"monthly,omitempty" json:"monthly,omitempty"`
-	Quarterly  int `bson:"quarterly,omitempty" json:"quarterly,omitempty"`     // Per 3 bulan
-	SemiAnnual int `bson:"semi_annual,omitempty" json:"semi_annual,omitempty"` // Per 6 bulan
-	Yearly     int `bson:"yearly,omitempty" json:"yearly,omitempty"`
+	Monthly    int       `bson:"monthly,omitempty" json:"monthly,omitempty"`
+	Quarterly  int       `bson:"quarterly,omitempty" json:"quarterly,omitempty"`     // Per 3 bulan
+	SemiAnnual int       `bson:"semi_annual,omitempty" json:"semi_annual,omitempty"` // Per 6 bulan
+	Yearly     int       `bson:"yearly,omitempty" json:"yearly,omitempty"`
+	CreatedAt  time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"` // Waktu pembuatan
+	UpdatedAt  time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"` // Waktu pembaruan
 }
 
 // transaksi
