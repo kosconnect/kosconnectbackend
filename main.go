@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	// "github.com/joho/godotenv" //digunakan hanya jika akan di run secara local
@@ -12,11 +13,9 @@ import (
 	"github.com/organisasi/kosconnectbackend/routes"
 )
 
-func init() {
-	// Load environment variables digunakan hanya jika akan di run secara local
-	// if err := godotenv.Load(); err != nil {
-	// 	log.Println("No .env file found")
-	// }
+var initOnce sync.Once
+
+func setup() {
 	// Inisialisasi konfigurasi Midtrans
 	config.InitMidtransConfig()
 
@@ -26,6 +25,8 @@ func init() {
 
 // Handler for deployment - Menerima request dan menangani routing dengan CORS
 func Handler(w http.ResponseWriter, r *http.Request) {
+	initOnce.Do(setup)
+
 	// Set up Gin router di dalam handler
 	router := gin.Default()
 
